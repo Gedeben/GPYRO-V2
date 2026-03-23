@@ -1,0 +1,90 @@
+//
+
+COMPONENT:       KAOWOOL
+STATE:           S
+DENSITY:         256  0  0  0
+HEAT CAPACITY:   1070  0  0  0
+CONDUCTIVITY:    0.058  0  0  0
+TRANSPORT:       1e-30  0  0  0
+EMISSIVITY & ABSORPTION:  0.95  10000
+
+COMPONENT:       MAT_A
+STATE:           S
+DENSITY:         1430  0  0  0
+HEAT CAPACITY:   1550  0  0  0
+CONDUCTIVITY:    0.088055 0.0003   0  0
+TRANSPORT:       2e-5  0  0  0
+EMISSIVITY & ABSORPTION:  1 10000
+
+COMPONENT:       MAT_B
+STATE:           S
+DENSITY:         629.2  0  0  0
+HEAT CAPACITY:   1720  0  0  0
+CONDUCTIVITY:    0.02148 0.0008  0  0
+TRANSPORT:       2e-5  0  0  0
+EMISSIVITY & ABSORPTION:  1  10000
+
+COMPONENT:       MAT_C
+STATE:           S
+DENSITY:         295.7  0  0  0
+HEAT CAPACITY:   780  0  0  0
+CONDUCTIVITY:    -0.13166 0.0018 0 0
+TRANSPORT:       2e-5  0  0  0
+EMISSIVITY & ABSORPTION:  1  10000
+
+
+COMPONENT:       GAS_1
+STATE:           G
+DENSITY:         1  0  0  0
+HEAT CAPACITY:   0  0  0  0
+CONDUCTIVITY:    0.001  0  0  0
+TRANSPORT:       2e-2  0  0  0
+EMISSIVITY & ABSORPTION:  1  10000
+
+COMPONENT:       GAS_2
+STATE:           G
+DENSITY:         1  0  0  0
+HEAT CAPACITY:   0  0  0  0
+CONDUCTIVITY:    0.001  0  0  0
+TRANSPORT:       2e-2  0  0  0
+EMISSIVITY & ABSORPTION:  1  10000
+
+
+MIXTURES               
+S SWELLING:           0
+L SWELLING:           0
+G SWELLING LIMIT:     0
+PARALL CONDUCTIVITY:  1
+PARALL TRANSPORT:     1
+
+
+
+
+REACTION:       MAT_A + NOCOMP -> MAT_B + GAS_1
+STOICHIOMETRY:  1    0         0.44    0.56
+ARRHENIUS:      9.5e20  2.49e5
+HEAT:           -1.7e5  0  0  0
+TEMP LIMIT:     L  0
+
+REACTION:       MAT_B + NOCOMP -> MAT_C + GAS_2
+STOICHIOMETRY:  1    0         0.47    0.53
+ARRHENIUS:      5.5e11  1.92e5
+HEAT:           -1.2e6 0  0  0
+TEMP LIMIT:     L  0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

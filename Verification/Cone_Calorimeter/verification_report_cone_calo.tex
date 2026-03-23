@@ -1,0 +1,78 @@
+\ifdefined\ConeCalo % <- Compile only if \ConeCalo is defined
+
+\documentclass[12pt]{report} 
+
+\usepackage{float} % <- For [H] exact figure placement
+\usepackage[a4paper, margin=1in]{geometry} % <- Page size and margins
+\usepackage{textcomp} % <- Extra text symbols (e.g., \textdegree)
+\usepackage{graphicx} % <- Include images
+\usepackage[utf8]{inputenc} % <- UTF-8 encoding
+\usepackage{amsmath} % <- Math environments
+\usepackage{booktabs} % <- Professional-quality tables
+\usepackage{tikz} % <- Vector graphics
+\usepackage{enumitem} % <- Custom list formatting
+\usepackage{pgfplotstable} % <- Read and display tables from CSV
+\usetikzlibrary{decorations.pathmorphing} % <- Path effects for TikZ
+\usepackage[hidelinks]{hyperref} % <- hypertext
+
+% <- Define folder macros for modularity
+\newcommand{\REFDIR}{Reference_Cone_Calorimmeter} % <- Reference case folder
+\newcommand{\SPATIALDIR}{Spatial_Convergence}     % <- Spatial convergence folder
+\newcommand{\TIMEDIR}{Time_Step_Convergence}      % <- Time step convergence folder
+\newcommand{\DIMDIR}{Extention_Cone_Calo_2D_3D}  % <- Extention 2D 3D cone calo folder
+\newcommand{\RETCCCONVTHREED}{3D_Lateral_convection}  % <- Extention to 3D with lateral convection folder
+\newcommand{\OMPPARALLELIZATION}{OMP_parallelization}  % <- Test OMP prallelization
+
+
+
+\begin{document}
+\fi
+% <- Set image search paths
+\graphicspath{
+  {\REFDIR/}    
+  {\SPATIALDIR/}
+  {\TIMEDIR/} 
+  {\DIMDIR/} 
+  {\RETCCCONVTHREED/} 
+  {\OMPPARALLELIZATION/}  
+}
+
+
+
+\chapter{ Verification Cone Calorimeter Gpyro}
+Introuduction ...
+
+\newpage
+\input{\REFDIR/reference_cc.tex}
+
+\newpage
+\input{\TIMEDIR/time_step_convergence.tex}
+
+\newpage
+\input{\SPATIALDIR/spatial_convergence.tex}
+
+\newpage
+\input{\DIMDIR/ref_cc_2D_3D_extention.tex}
+
+\newpage
+\input{\RETCCCONVTHREED/ref_cc_3D_conv.tex}
+
+
+\ifdefined\ConeCalo
+\clearpage
+\addcontentsline{toc}{section}{References}
+\bibliographystyle{unsrt}
+\bibliography{\REFDIR/reference_cc}
+\end{document}
+\fi
+
+
+
+
+
+
+
+
+
+
+

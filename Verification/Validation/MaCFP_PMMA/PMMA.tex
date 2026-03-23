@@ -1,0 +1,67 @@
+\ifdefined\standalone
+\documentclass[12pt]{article}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[a4paper, margin=1in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{textcomp}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage[hidelinks]{hyperref}
+\begin{document}
+\fi
+
+
+\section{PMMA Validation Case (MaCFP Benchmark)}
+
+This validation case reproduces the MaCFP benchmark experiment on \textbf{poly(methyl methacrylate) (PMMA)} performed in the NIST Gasification Apparatus under an external radiant heat flux of \(\mathbf{50~\mathrm{kW/m^2}}\).  
+The sample consists of a \(\mathbf{5.9~\mathrm{mm}}\) thick PMMA slab placed on a \(\mathbf{12~\mathrm{mm}}\) Kaowool insulation layer, with the back surface fully insulated (adiabatic).  
+PMMA is modeled as a non-charring material, decomposing into gas through a single first-order reaction. The kinetic parameters are summarized in Table~\ref{tab:chem_props_pmma}, while the thermophysical properties of PMMA and Kaowool are given in Table~\ref{tab:phys_props_pmma}.  
+The simulation uses a uniform spatial discretization of \(\Delta z = 0.025~\mathrm{mm}\) and a time step of \(\Delta t = 0.05~\mathrm{s}\). The results of the simulation are presented in Figure~\ref{fig:MLR_PMMA}.
+
+\begin{table}[H]
+\centering
+\caption{Chemical kinetics parameters for PMMA}
+\label{tab:chem_props_pmma}
+\begin{tabular}{@{}lllll@{}}
+\toprule
+Reaction & $A_k$ ($\mathrm{s^{-1}}$) & $E_k$ ($\mathrm{kJ/mol}$) & $n_k$ (-) & $\Delta H_k$ ($\mathrm{J/kg}$) \\
+\midrule
+PMMA $\rightarrow$ Gas & $1.35 \times 10^{11}$ & 164 & 1 & $8.17 \times 10^{5}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Thermophysical properties of PMMA and Kaowool}
+\label{tab:phys_props_pmma}
+\begin{tabular}{@{}llllll@{}}
+\toprule
+Material & $k$ ($\mathrm{W/m{\cdot}K}$) & $c_p$ ($\mathrm{J/kg{\cdot}K}$) & $\rho$ ($\mathrm{kg/m^3}$) & $\alpha$ ($\mathrm{m^{-1}}$) & $\varepsilon$ (-) \\
+\midrule
+PMMA ($T\le394$K) & 0.16 & $-1390+8.33T$ & 1210 & 2870 & 0.96 \\
+PMMA ($T>394$K)   & $0.3 - 4.2\times10^{-4}T$ & $851+3.07T$ & 1210 & 2870 & 0.96 \\
+Kaowool           & 0.058 & 1070 & 256 & $\infty$ & 0.95 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{result_pmma_macfp.png}
+\caption{Simulation of the Mass Loss Rate (MLR) for PMMA in the NIST Gasification Apparatus}
+\label{fig:MLR_PMMA}
+\end{figure}
+
+
+\ifdefined\standalone
+\end{document}
+\fi
+
+
+
+
+
+
+

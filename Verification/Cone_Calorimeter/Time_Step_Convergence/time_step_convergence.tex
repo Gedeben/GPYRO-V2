@@ -1,0 +1,77 @@
+\ifdefined\standalone 
+\documentclass[12pt]{article}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[a4paper, margin=1in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{textcomp}
+\usepackage{amsmath}
+\usepackage{pgfplotstable}
+\usepackage{booktabs} % pour les belles lignes
+\usepackage[hidelinks]{hyperref} % <- hypertext
+\providecommand{\TIMEDIR}{.}
+
+
+\begin{document}
+\fi
+
+\section{Temporal Convergence Verification}
+
+This verification case assesses the temporal convergence behavior of the Gpyro solvers in a cone calorimeter configuration. The reference simulation corresponds to the \texttt{reference\_cc} setup. A one-dimensional uniform spatial discretization of \(\Delta z = 0.1\,\mathrm{mm}\) is used for all simulations, while the time step \(\Delta t\) is varied from 10~s to 0.0005~s.
+
+The mass loss rate (MLR) curves obtained for each time step are presented in Figure~\ref{fig:mlr_curves}, and Table~\ref{tab:cpu_vs_error} summarizes the corresponding mean errors and CPU times.
+
+For time steps smaller than 1~s, the solution exhibits convergence. For larger time steps, deviations appear due to temporal discretization errors. However, because the 1D thermal solver is implicit and thus unconditionally stable, these deviations remain bounded and manifest as oscillations rather than instabilities. Moreover, the species conservation equation is implemented in a conservative form. As a result, even with large time steps, the total mass loss remains consistent across simulations—an important property for practical robustness.
+
+The temporal error is evaluated by using the simulation with the smallest time step (\(0.0005\,\mathrm{s}\)) as a reference. The error is computed as the mean absolute difference between the MLR curves of each simulation and the reference, integrated over time.
+
+Given the first-order nature of the temporal scheme, the error is expected to scale linearly with \(\Delta t\), i.e., \(\mathcal{O}(\Delta t^1)\). This is confirmed by the log-log plot of the error versus time step shown in Figure~\ref{fig:error_convergence}, where a linear regression is performed to estimate the convergence order.
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.48\textwidth}
+\centering
+\includegraphics[width=\linewidth]{time_step_convergence.png}
+\caption{Mass loss rate profiles for different time steps.}
+\label{fig:mlr_curves}
+\end{minipage}%
+\begin{minipage}[t]{0.48\textwidth}
+\centering
+\includegraphics[width=\linewidth]{time_step_error.png}
+\caption{Mean error vs. time step.}
+\label{fig:error_convergence}
+\end{minipage}
+\hfill
+
+\end{figure}
+
+
+\begin{table}[H]
+\centering
+\caption{Mean error and CPU time for different time step sizes.}
+\label{tab:cpu_vs_error}
+
+\pgfplotstableread[col sep=comma]{\TIMEDIR/convergence_summary.csv}\datatable
+
+\pgfplotstabletypeset[
+    col sep=comma,
+    string type,
+    columns={Time step (s),Mean Error,CPU Time (s)},
+    columns/Time step (s)/.style={column name={\(\Delta t\) (s)}},
+    columns/Mean Error/.style={column name={Mean Error}},
+    columns/CPU Time (s)/.style={column name={CPU Time (s)}},
+    every head row/.style={before row=\toprule, after row=\midrule},
+    every last row/.style={after row=\bottomrule}
+]{\datatable}
+
+
+
+\end{table}
+
+
+\ifdefined\standalone
+\end{document}
+\fi
+
+
+

@@ -1,0 +1,117 @@
+&HEAD CHID='reference_cc', TITLE='PVC at 50 kW/m2,Cone Calori, No Gas Phase Reaction' /
+
+&MESH IJK=3,3,4, XB=-0.15,0.15,-0.15,0.15,0.0,0.4 /  Mesh is just to make FDS run
+
+&TIME T_END=600., WALL_INCREMENT=1, DT=0.01 /  Force FDS to do solid phase calc every time step
+
+&REAC FUEL='METHANE'/  No gas phase reaction with 1% O2 concentration
+&MISC SOLID_PHASE_ONLY = .TRUE. 
+	TMPA= 25/
+
+
+
+&MATL ID='MAT_A'
+      ABSORPTION_COEFFICIENT=14300000
+      EMISSIVITY    = 1.0
+      CONDUCTIVITY_RAMP='k_ramp1'
+      SPECIFIC_HEAT= 1.55
+      DENSITY	    =1430
+
+      N_REACTIONS=1
+      A(1) = 9.5e20
+      E(1) = 2.49e5
+      MATL_ID='MAT_B'
+      SPEC_ID='METHANE'
+      NU_MATL=0.44
+      NU_SPEC=0.56
+      HEAT_OF_REACTION=170 
+      ADJUST_H = .FALSE. /
+
+
+
+&MATL ID='MAT_B'
+      ABSORPTION_COEFFICIENT=14300000
+      EMISSIVITY    =1.0
+      CONDUCTIVITY_RAMP='k_ramp2'
+      SPECIFIC_HEAT= 1.72
+      DENSITY	    =629.2
+
+      N_REACTIONS=1
+      A(1) = 5.5e11
+      E(1) = 1.92e5
+      MATL_ID='MAT_C'
+      SPEC_ID='METHANE'
+      NU_MATL=0.47
+      NU_SPEC=0.53
+      HEAT_OF_REACTION=1200
+
+      ADJUST_H = .FALSE. /
+
+
+&MATL ID='MAT_C'
+      ABSORPTION_COEFFICIENT=14300000
+      EMISSIVITY    =1.0
+      CONDUCTIVITY_RAMP='k_ramp3'
+      SPECIFIC_HEAT= 0.78
+      DENSITY	    = 295.7 /
+
+
+
+&MATL ID='KAOWOOL'
+      CONDUCTIVITY = 0.058
+      SPECIFIC_HEAT = 1.07
+      DENSITY = 256 
+      EMISSIVITY=0.96
+      ABSORPTION_COEFFICIENT=500000./
+
+ 
+
+&SURF ID='SLAB'
+      COLOR='BLACK'
+      MATL_ID='MAT_A','KAOWOOL'
+      THICKNESS=0.006,0.012
+      STRETCH_FACTOR(1)=1.
+      STRETCH_FACTOR(2)=1.
+      CELL_SIZE(1)=0.00005
+      CELL_SIZE(2)=0.00005
+
+      TMP_GAS_BACK = 25
+      HEAT_TRANSFER_COEFFICIENT_BACK= 0
+
+
+      HEAT_TRANSFER_COEFFICIENT=8.2
+      EXTERNAL_FLUX=50 /  
+
+
+
+&RAMP ID='k_ramp1', T=0.0,   F= 0.17  /
+&RAMP ID='k_ramp1', T=2000,  F= 0.77  /
+
+&RAMP ID='k_ramp2', T=0.0, F= 0.24 /
+&RAMP ID='k_ramp2', T=2000, F= 1.84 /
+
+&RAMP ID='k_ramp3', T=0.0, F= 0.36 /
+&RAMP ID='k_ramp3', T=2000, F= 3.96 /
+
+
+
+&VENT XB=-0.05,0.05,-0.05,0.05,0.0,0.0, SURF_ID = 'SLAB' /
+
+&VENT MB='XMIN', SURF_ID='OPEN' /
+&VENT MB='XMAX', SURF_ID='OPEN' /
+&VENT MB='YMIN', SURF_ID='OPEN' /
+&VENT MB='YMAX', SURF_ID='OPEN' /
+&VENT MB='ZMAX', SURF_ID='OPEN' /
+
+&DUMP DT_DEVC=0.5 /
+
+&DEVC XYZ=0.0,0.0,0.0, IOR=3, QUANTITY='WALL TEMPERATURE',     ID='Tz0' /
+&DEVC XYZ=0.0,0.0,0.0, DEPTH=0.003, IOR=3, QUANTITY='INSIDE WALL TEMPERATURE',     ID='Tz3' /
+&DEVC XYZ=0.0,0.0,0.0, DEPTH=0.006, IOR=3, QUANTITY='INSIDE WALL TEMPERATURE',     ID='Tz6' /
+&DEVC XYZ=0.0,0.0,0.0, IOR=3, QUANTITY='BURNING RATE',         ID='MLR' /
+&DEVC XYZ=0.0,0.0,0.0, IOR=3, QUANTITY='WALL THICKNESS',       ID='thick' /
+&DEVC XYZ=0.0,0.0,0.0, IOR=3, QUANTITY='RADIATIVE HEAT FLUX',       ID='radiative hf' /
+&DEVC XYZ=0.0,0.0,0.0, IOR=3, QUANTITY='INCIDENT HEAT FLUX',       ID='incident hf' /
+
+&TAIL /
+

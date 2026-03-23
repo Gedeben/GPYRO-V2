@@ -1,0 +1,65 @@
+\ifdefined\standalone 
+\documentclass[12pt]{article}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[a4paper, margin=1in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{textcomp}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{pgfplotstable}
+\usepackage{booktabs}
+\usepackage[hidelinks]{hyperref} % <- hypertext
+\providecommand{\SPATIALDIR}{.}
+
+\begin{document}
+\fi
+
+\section{Spatial Convergence Verification}
+
+This verification case assesses the spatial convergence behavior of the \texttt{Gpyro} solver in a cone calorimeter configuration. All simulations are run using a fixed time step \(\Delta t = 0.05\,\mathrm{s}\), while the spatial grid size \(\Delta z\) is varied from \(1\,\mathrm{mm}\) to \(0.0001\,\mathrm{mm}\).
+
+Figure~\ref{fig:mlr_curves_dz} presents the mass loss rate obtained for different spatial discretizations, and Table~\ref{tab:cpu_vs_error_space} summarizes the corresponding mean errors and CPU times.
+
+A log-log plot of the error versus \(\Delta z\) is shown in Figure~\ref{fig:error_convergence_space}. The linear regression indicates that the numerical scheme exhibits a spatial convergence rate close to \(\mathcal{O}(\Delta z^1)\).
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.48\textwidth}
+\centering
+\includegraphics[width=\linewidth]{grid_convergence.png}
+\caption{Mass loss rate profiles for different grid sizes.}
+\label{fig:mlr_curves_dz}
+\end{minipage}%
+\begin{minipage}[t]{0.48\textwidth}
+\centering
+\includegraphics[width=\linewidth]{grid_error.png}
+\caption{Mean error vs. grid size \(\Delta z\).}
+\label{fig:error_convergence_space}
+\end{minipage}
+\hfill
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{Mean error and CPU time for different spatial grid sizes.}
+\label{tab:cpu_vs_error_space}
+\pgfplotstableread[col sep=comma]{\SPATIALDIR/convergence_summary.csv}\datatable
+\pgfplotstabletypeset[
+    col sep=comma,
+    string type,
+    columns={dz (mm),Mean Error,CPU Time (s)},
+    columns/dz (mm)/.style={column name={\(\Delta z\) (mm)}},
+    columns/Mean Error/.style={column name={Mean Error}},
+    columns/CPU Time (s)/.style={column name={CPU Time (s)}},
+    every head row/.style={before row=\toprule, after row=\midrule},
+    every last row/.style={after row=\bottomrule}
+]{\datatable}
+\end{table}
+
+\ifdefined\standalone
+\end{document}
+\fi
+
+
+

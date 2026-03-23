@@ -1,0 +1,49 @@
+\ifdefined\standalone 
+\documentclass[12pt]{article}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[a4paper, margin=1in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{textcomp}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{enumitem}
+\usetikzlibrary{decorations.pathmorphing}
+\usepackage[hidelinks]{hyperref} % <- hypertext
+
+\begin{document}
+\fi
+
+
+\section{Extension to 2D and 3D Configurations}
+
+To further evaluate the robustness and consistency of the solver, the reference one-dimensional cone calorimeter configuration is extended to two- and three-dimensional domains. The domain is expanded to $10~\mathrm{cm} \times 10~\mathrm{cm}$ in the $x$ and $y$ directions, while maintaining a vertical thickness of $18~\mathrm{mm}$ identical to the 1D case.
+
+The computational mesh is composed of 20 uniform cells in both the $x$ and $y$ directions, and 180 cells in the $z$ direction. This corresponds to a spatial resolution of $\Delta x = \Delta y = 5~\mathrm{mm}$ and $\Delta z = 0.1~\mathrm{mm}$, which is 50 times finer along the vertical axis. A constant time step of $\Delta t = 0.5~\mathrm{s}$ is employed throughout the simulation.
+
+To avoid the stability constraints typically imposed by the fine vertical resolution, the numerical scheme is configured to be implicit along the $z$-axis and explicit in the $x$ and $y$ directions. This is achieved by activating the option \texttt{SOLVER\_MAIN\_DIRECTION='Z'}.
+
+In order to ensure theoretical equivalence with the one-dimensional configuration, adiabatic boundary conditions are imposed on all lateral surfaces (in the $x$ and $y$ directions). Under these assumptions, the 2D and 3D configurations are expected to reproduce the same thermal and chemical behavior as the 1D case.
+
+The comparison of the Mass Loss Rate (MLR) obtained from the 1D, 2D, and 3D simulations is presented in Figure~\ref{fig:mlr_2d_3d}. The consistency between the results confirms the proper extension of the solver to multidimensional domains without introducing numerical bias.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.75\textwidth]{mlr_2d_3d.png}
+\caption{Comparison of Mass Loss Rate (MLR) between 1D, 2D, and 3D configurations}
+\label{fig:mlr_2d_3d}
+\end{figure}
+
+
+
+
+\ifdefined\standalone
+\end{document}
+\fi
+
+
+
+
+
+

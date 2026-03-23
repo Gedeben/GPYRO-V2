@@ -1,0 +1,66 @@
+============== TIMING SUMMARY ===============
+Total CPU Time (s): 1667.29
+               Subroutine  Time (s)   CPU (%)
+---------------------------------------------
+     SOLID_SPECIES_SOLVER    639.44   38.35
+    SOLID_ENTHALPY_SOLVER    969.77   58.16
+             GAS_EQUATION     42.30    2.54
+            DUMP_ROUTINES      0.73    0.04
+               ALL OTHERS     15.06    0.90
+---------------------------------------------
+  
+  
+=========== SOLID SPECIES SOLVER ============
+               Subroutine  Time (s)   CPU (%)
+---------------------------------------------
+            REACTION_RATE    309.64   48.42
+     SPECIES_SOURCE_TERMS    163.85   25.62
+     SOLVE_YI_AND_DENISTY    135.93   21.26
+         MESH_DEFORMATION     30.02    4.69
+                   Others     -0.00   -0.00
+---------------------------------------------
+                   TOTAL:    639.44  100.00
+  
+  
+========== SOLID ENTHALPY SOLVER ============
+               Subroutine  Time (s)   CPU (%)
+---------------------------------------------
+       THERMAL_PROPERTIES    200.95   20.72
+     ENERGIE SOURCE TERMS    108.72   11.21
+           GET TDMA COEFF     86.90    8.96
+          SHYI CORRECTION    181.18   18.68
+             BC HANDELING     11.75    1.21
+               SOLVE TDMA     61.49    6.34
+                 T FROM H    305.95   31.55
+                   Others    213.76   22.04
+---------------------------------------------
+                   TOTAL:    969.77  100.00
+  
+  
+============== DUMP ROUTINES ================
+               Subroutine  Time (s)   CPU (%)
+---------------------------------------------
+               POINT DATA      0.73   99.38
+           SMOKEVIEW FILE      0.00    0.11
+             PROFILE DATA      0.00    0.21
+                   Others      0.00    0.30
+---------------------------------------------
+                   TOTAL:      0.73  100.00
+  
+  
+================ ALL OTHERS =================
+               Subroutine  Time (s)   CPU (%)
+---------------------------------------------
+          READ INPUT FILE      0.00    0.02
+           INITIALISATION      0.76    5.08
+         GET BC TIME STEP      0.03    0.19
+UPDATE SOLUTION TIME STEP     14.22   94.41
+                   Others      0.05    0.31
+---------------------------------------------
+                   TOTAL:     15.06  100.00
+  
+  
+  
+  
+  
+  

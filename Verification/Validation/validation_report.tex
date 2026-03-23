@@ -1,0 +1,37 @@
+\ifdefined\Validation
+\documentclass[12pt]{report}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[a4paper, margin=1in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{textcomp}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{enumitem}
+\usetikzlibrary{decorations.pathmorphing,patterns}
+\usepackage[hidelinks]{hyperref} % <- hypertext
+
+% <- Define folder macros for modularity
+\newcommand{\MACFPPMMA}{MaCFP_PMMA}  % < Thermal equilibrium 3D
+
+\begin{document}
+\fi
+
+
+\graphicspath{
+  {\MACFPPMMA/}
+}
+
+
+
+\chapter{ Validation}
+Introuduction ...
+\newpage
+
+\input{\MACFPPMMA/PMMA.tex}
+
+
+\ifdefined\Validation
+\end{document}
+\fi
