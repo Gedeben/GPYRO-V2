@@ -46,7 +46,8 @@ SUBROUTINE GA_INIT
 
 REAL(EB) :: TSTOPMAX,TI,MINDIFF,DIFF,EXPONENT
 INTEGER  :: ICASE,IT,IPHI,IX,IY,IZ
-      
+TYPE (GPYRO_MESH_TYPE), POINTER :: M
+
 ! Set misc variables
 GA%NREPOPULATED    = 0
 GA%NNOTCONVERGED   = 0
@@ -97,9 +98,8 @@ ALLOCATE(GA%TRYDATA(1:GA%NPHI))
        
 DO ICASE = 1, GPG%NCASES
    DO IPHI = 1, GA%NPHI
-      WRITE(0,*) "Yes"
       IF (GA%PHI(IPHI)%ICASE .NE. ICASE) CYCLE
-      WRITE(0,*) "Help plz"
+
       ALLOCATE(GA%TRYDATA(IPHI)%T(1:GA%NDT(ICASE)))
       ALLOCATE(GA%TRYDATA(IPHI)%Y(1:GA%NDT(ICASE)))
    ENDDO
@@ -109,42 +109,43 @@ ENDDO
 DO IPHI = 1, GA%NPHI   
    IF (GA%PHI(IPHI)%CTYPE .NE. 'TMP') CYCLE
    ICASE = GA%PHI(IPHI)%ICASE
-   G=>GPM(GPG%IMESH(ICASE))
+   G => GPM(GPG%IMESH(ICASE))
+   M => G%MESH
 
 ! Start with z:
    MINDIFF = 9D9
-   DO IZ = 1, G%NCELLZ 
-      DIFF = ABS(G%Z(IZ) - GA%PHI(IPHI)%ZT)
+   DO IZ = 1, M%NCELLZ 
+      DIFF = ABS(M%Z(IZ,1,1) - GA%PHI(IPHI)%ZT)
       IF (DIFF .LT. MINDIFF) THEN
          MINDIFF = DIFF
-         GA%PHI(IPHI)%IZ_TMP = MAX(MIN(IZ,G%NCELLZ),1)
+         GA%PHI(IPHI)%IZ_TMP = MAX(MIN(IZ,M%NCELLZ),1)
       ENDIF 
    ENDDO !IZ
 
 ! Now on to x:
-   IF (G%NCELLX .EQ. 1) THEN
+   IF (M%NCELLX .EQ. 1) THEN
       GA%PHI(IPHI)%IX_TMP = 1
    ELSE
       MINDIFF = 9D9
-      DO IX = 1, G%NCELLX 
-         DIFF = ABS(G%X(IX) - GA%PHI(IPHI)%XT)
+      DO IX = 1, M%NCELLX 
+         DIFF = ABS(M%X(IX) - GA%PHI(IPHI)%XT)
          IF (DIFF .LT. MINDIFF) THEN
             MINDIFF = DIFF
-            GA%PHI(IPHI)%IX_TMP = MAX(MIN(IX,G%NCELLX),1)
+            GA%PHI(IPHI)%IX_TMP = MAX(MIN(IX,M%NCELLX),1)
          ENDIF 
       ENDDO !IX
    ENDIF
 
 ! And on to y:
-   IF (G%NCELLY .EQ. 1) THEN
+   IF (M%NCELLY .EQ. 1) THEN
       GA%PHI(IPHI)%IY_TMP = 1
    ELSE
       MINDIFF = 9D9
-      DO IY = 1, G%NCELLY 
-         DIFF = ABS(G%Y(IY) - GA%PHI(IPHI)%YT)
+      DO IY = 1, M%NCELLY 
+         DIFF = ABS(M%Y(IY) - GA%PHI(IPHI)%YT)
          IF (DIFF .LT. MINDIFF) THEN
             MINDIFF = DIFF
-            GA%PHI(IPHI)%IY_TMP = MAX(MIN(IY,G%NCELLY),1)
+            GA%PHI(IPHI)%IY_TMP = MAX(MIN(IY,M%NCELLY),1)
          ENDIF 
       ENDDO !IY
    ENDIF
@@ -211,7 +212,7 @@ DO IPHI = 1, GA%NPHI
              CALL SHUTDOWN_GRACEFULLY(MESSAGE)             
           ENDIF
          
-          IF (GA%PHI(IPHI)%ZT .GT. GPM(IMESH)%ZDIM) THEN
+          IF (GA%PHI(IPHI)%ZT .GT. GPM(IMESH)%MESH%ZDIM) THEN
              MESSAGE='Error:  for IPHI= ' // TWO // ' z_tmp is greater than zdim.'
              CALL SHUTDOWN_GRACEFULLY(MESSAGE)             
           ENDIF
@@ -221,7 +222,7 @@ DO IPHI = 1, GA%NPHI
              CALL SHUTDOWN_GRACEFULLY(MESSAGE)             
           ENDIF
          
-          IF (GA%PHI(IPHI)%XT .GT. GPM(IMESH)%XDIM) THEN
+          IF (GA%PHI(IPHI)%XT .GT. GPM(IMESH)%MESH%XDIM) THEN
              MESSAGE='Error:  for IPHI= ' // TWO // ' x_tmp is greater than xdim.'
              CALL SHUTDOWN_GRACEFULLY(MESSAGE)             
           ENDIF
@@ -231,27 +232,27 @@ DO IPHI = 1, GA%NPHI
              CALL SHUTDOWN_GRACEFULLY(MESSAGE)             
           ENDIF
          
-          IF (GA%PHI(IPHI)%YT .GT. GPM(IMESH)%YDIM) THEN
+          IF (GA%PHI(IPHI)%YT .GT. GPM(IMESH)%MESH%YDIM) THEN
              MESSAGE='Error:  for IPHI= ' // TWO // ' y_tmp is greater than ydim.'
              CALL SHUTDOWN_GRACEFULLY(MESSAGE)             
           ENDIF
 
       CASE('MLR')
          CONTINUE
-!         IF (GPM(IMESH)%NCELLX .GT. 1 .OR. GPM(IMESH)%NCELLY .GT. 1) THEN
+!         IF (GPM(IMESH)%MESH%NCELLX .GT. 1 .OR. GPM(IMESH)%MESH%NCELLY .GT. 1) THEN
 !             MESSAGE='Error:  MLR fitness metric only valid for 0D or 1D simulation.'
 !             CALL SHUTDOWN_GRACEFULLY(MESSAGE)                      
 !         ENDIF
 
       CASE('CML')
          CONTINUE
-!         IF (GPM(IMESH)%NCELLX .GT. 1 .OR. GPM(IMESH)%NCELLY .GT. 1) THEN
+!         IF (GPM(IMESH)%MESH%NCELLX .GT. 1 .OR. GPM(IMESH)%MESH%NCELLY .GT. 1) THEN
 !             MESSAGE='Error:  CML fitness metric only valid for 1D simulation.'
 !             CALL SHUTDOWN_GRACEFULLY(MESSAGE)                      
 !         ENDIF
 
       CASE('DLT')
-         IF (GPM(IMESH)%NCELLX .GT. 1 .OR. GPM(IMESH)%NCELLY .GT. 1) THEN
+         IF (GPM(IMESH)%MESH%NCELLX .GT. 1 .OR. GPM(IMESH)%MESH%NCELLY .GT. 1) THEN
              MESSAGE='Error:  DLT fitness metric only valid for 1D simulation.'
              CALL SHUTDOWN_GRACEFULLY(MESSAGE)                      
          ENDIF
@@ -274,10 +275,11 @@ SUBROUTINE GPYRO_DRIVER(ITRYACT,ICASE,IINDIV)
 ! ITRYACT = 1: Simulated experimental data
 ! ITRYACT = 2: Trial 
 INTEGER, INTENT(IN) :: ITRYACT,ICASE,IINDIV
-INTEGER  :: ITIME,IPHI,IZ,IX,IY,IPHIFORTMP,ILOC
+INTEGER  :: ITIME,IPHI,IZ,IX,IY,IPHIFORTMP,ILOC,IMESH
 REAL(EB) :: TI,TMP, MLR
 LOGICAL :: FAILED_TIMESTEP
 TYPE(EXP_DATA_TYPE), POINTER, DIMENSION(:) :: METRIC
+TYPE (GPYRO_MESH_TYPE), POINTER :: M
 
 CALL INIT_GPYRO(ICASE,GPG%IMESH(ICASE))
 
@@ -297,23 +299,26 @@ ENDDO
 TI        = GPG%DT0
 ITIME     = 1
 
+IMESH=GPG%IMESH(ICASE)
+G => GPM(IMESH)
+M => G%MESH
+
 G%NTIMESTEPS = 0
 DO WHILE (TI .LE. GPG%TSTOP(ICASE) ) !+ GPG%DT0)
    IF (.NOT. GPG%ZEROD(ICASE)) THEN
       FAILED_TIMESTEP = .TRUE.
-
+      G%NTIMESTEPS = G%NTIMESTEPS + 1
       DO WHILE (FAILED_TIMESTEP)
          GPG%DT = GPG%DTNEXT
-         CALL GPYRO_PYROLYSIS(GPG%IMESH(ICASE),ICASE,G%NCELLZ,G%NCELLX,G%NCELLY,TI,FAILED_TIMESTEP)
+         CALL GPYRO_PYROLYSIS(GPG%IMESH(ICASE),ICASE,M%NCELLZ,M%NCELLX,M%NCELLY,TI,FAILED_TIMESTEP)
          IF (FAILED_TIMESTEP.AND.GA%KILL_NONCONVERGED_SOLNS) THEN
             GA%FIT(IINDIV,:) = GA%FITMIN
             RETURN    
          ENDIF
                          
-         IF (G%THICKNESS(1,1) .LT. 0.0000001*G%ZDIM) RETURN
+         IF (G%THICKNESS(1,1) .LT. 0.0000001*M%ZDIM) RETURN
 
       ENDDO !FAILED_TIMESTEP
-      G%NTIMESTEPS = G%NTIMESTEPS + 1
 
    ELSE
       GPG%DTNEXT = GPG%DT0
@@ -347,7 +352,7 @@ DO WHILE (TI .LE. GPG%TSTOP(ICASE) ) !+ GPG%DT0)
             CASE ('MLR') !Mass loss rate
                METRIC(IPHI)%Y(ITIME) = INTEGRATED_MASS_LOSS_RATE(0)
             CASE ('CML') !Cumulative mass loss
-               METRIC(IPHI)%Y(ITIME) = G%INITIAL_MASS - TOTAL_MASS(0)
+               METRIC(IPHI)%Y(ITIME) = G%TOTAL_INITIAL_MASS - TOTAL_MASS(0)
                IF (GPG%ZEROD(ICASE)) METRIC(IPHI)%Y(ITIME) = METRIC(IPHI)%Y(ITIME) * 1000. 
             CASE ('DLT') !Thickness (delta)
                IX = GA%PHI(IPHI)%IX_TMP

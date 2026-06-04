@@ -1,0 +1,53 @@
+\ifdefined\NumPerf
+\documentclass[12pt]{report}
+\usepackage{graphicx} % <- Include images
+\usepackage{float} % <- For [H] exact figure placement
+\usepackage[a4paper, margin=1in]{geometry} % <- Page size and margins
+\usepackage[utf8]{inputenc} % <- UTF-8 encoding
+\usepackage{textcomp} % <- Extra text symbols (e.g., \textdegree)
+\usepackage{amsmath} % <- Math environments
+\usepackage{booktabs} % <- Professional-quality tables
+\usepackage{tikz} % <- Vector graphics
+\usepackage{enumitem} % <- Custom list formatting
+\usepackage{pgfplotstable} % <- Read and display tables from CSV
+\usetikzlibrary{decorations.pathmorphing} % <- Path effects for TikZ
+\usepackage[hidelinks]{hyperref} % <- hypertext
+\usepackage{caption}
+
+
+
+% <- Define folder macros for modularity
+\newcommand{\SPECIESCONVDIR}{Species_solver}         % Species solver convergence 
+\newcommand{\THERMALCONVDIR}{Thermal_solver}  % Thermal solver convergence
+\newcommand{\CONECALOCONVDIR}{Cone_Calorimeter}      % <- Cone Calorimeter convergence 
+\newcommand{\OMPPARALLELIZATION}{OMP_parallelization}  % <- Test OMP prallelization
+\begin{document}
+\fi
+
+
+\graphicspath{
+  {\SPECIESCONVDIR/}
+  {\THERMALCONVDIR/}
+  {\CONECALOCONVDIR/}
+  {\OMPPARALLELIZATION/}  
+}
+
+
+\chapter{Numerical Performance}
+
+\newpage
+\input{\SPECIESCONVDIR/species_solver_convergence.tex}
+
+\newpage
+\input{\THERMALCONVDIR/Thermal_solver_convergence.tex}
+
+\newpage
+\input{\CONECALOCONVDIR/Cone_Calorimeter_convergence.tex}
+
+\newpage
+\input{\OMPPARALLELIZATION/OMP_parallelization.tex}
+
+
+\ifdefined\NumPerf
+\end{document}
+\fi

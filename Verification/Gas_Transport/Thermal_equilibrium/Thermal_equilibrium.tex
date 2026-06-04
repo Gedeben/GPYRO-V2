@@ -1,0 +1,62 @@
+\ifdefined\standalone 
+\documentclass[12pt]{article}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[a4paper, margin=1in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{textcomp}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{enumitem}
+\usetikzlibrary{decorations.pathmorphing,patterns}
+\usepackage[hidelinks]{hyperref} % <- hypertext
+
+\begin{document}
+\fi
+
+\section{Gas--solid heat exchange}
+\label{sec:gas_solid_heat_exchange}
+
+This verification case evaluates the capability of \textsc{Gpyro} to correctly model heat exchange between a solid phase and a flowing gas under the assumption of local thermal equilibrium.
+
+A one-dimensional slab of thickness $L = 10~\mathrm{cm}$ is considered. The solid is heated from the top surface by a constant external heat flux of $50~\mathrm{kW\,m^{-2}}$. Simultaneously, a gas mass flux of
+$\dot{m}''_{\mathrm{gas}} = 0.1~\mathrm{kg\,m^{-2}\,s^{-1}}$ enters the domain from the bottom boundary at an initial temperature of $300~\mathrm{K}$ and flows upward through the porous medium.
+
+At the inlet, the gas temperature is instantaneously equilibrated with the local solid temperature. Throughout the domain, gas and solid phases are assumed to remain in local thermal equilibrium, such that the gas and solid temperatures are equal. Under this assumption, in \textsc{Gpyro} the volumetric heat exchange term between the gas and the solid is expressed as:
+\begin{equation}
+\dot{Q}'''_{s-g} = c_{p,g}\,\dot{m}''_{\mathrm{gas}}\,\frac{\partial T}{\partial z}
+\label{eq:Qsg}
+\end{equation}
+where $c_{p,g} = 1000~\mathrm{J\,kg^{-1}\,K^{-1}}$ is the gas specific heat capacity and $T$ denotes the common gas--solid temperature.
+
+The heat exchange term computed by \textsc{Gpyro} is compared against a semi-analytical reference obtained from Eq.~\eqref{eq:Qsg}, using the temperature gradient predicted by the numerical solution. The comparison is shown in Figure~\ref{fig:thermal_exchange_QSG}.
+
+In addition, a second simulation is performed in which gas--solid heat exchange is disabled. This case serves as a reference to isolate the influence of the gas--solid coupling on the temperature field. The resulting temperature profiles for both configurations are compared in Figure~\ref{fig:thermal_exchange_Temperature}, highlighting the impact of the gas flow on heat transport within the solid.
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.48\textwidth}
+\centering
+\includegraphics[width=\linewidth]{thermal_exchange_QSG.png}
+\caption{Volumetric gas--solid heat exchange term}
+\label{fig:thermal_exchange_QSG}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}
+\centering
+\includegraphics[width=\linewidth]{thermal_exchange_temperature.png}
+\caption{Temperature profiles with and without gas--solid exchange}
+\label{fig:thermal_exchange_Temperature}
+\end{minipage}
+\end{figure}
+
+\ifdefined\standalone
+\end{document}
+\fi
+
+
+
+
+
+

@@ -1,0 +1,85 @@
+\section{Analytical solution of mass conservation for Single-Step, First-Order  non-charring reaction}
+\label{ann:analytical_TGA}
+
+A sample composed of a single condensed material $A$ is considered.
+The material is assumed to be non-charring, and its thermal degradation produces only gaseous products, with no additional condensed species.
+Under these assumptions, the total mass of the sample $m_{\mathrm{tot}}$ is equal to the mass of material $A$, denoted $m_A$.
+
+The general mass conservation equation for species $A$ is written as:
+\begin{equation}
+\frac{dm_A}{dt} = \dot{\omega}'''_{\mathrm{net},A}\, V
+\label{eq:mass_balance_general}
+\end{equation}
+where $V$ is the sample volume, defined as $V = m_{\mathrm{tot}} / \bar{\rho}$, and $\dot{\omega}'''_{\mathrm{net},A}$ is the net volumetric production rate of species $A$.
+
+Since material $A$ is only consumed by the degradation reaction, the net production rate reduces to:
+\begin{equation}
+\dot{\omega}'''_{\mathrm{net},A}
+= - \dot{\omega}'''_{\mathrm{dest},A}
+= - r_k(T)
+\end{equation}
+where $r(T)$ is the rate of the single reaction responsible for the destruction of material $A$.
+The reaction is assumed to be non-oxidative and of first order.
+
+The reaction rate is expressed as:
+\begin{equation}
+r(T) =
+(1 - \alpha_A)\,
+\frac{\bar{\rho} Y_A}{1 - \alpha_A}\,
+K(T)
+= \bar{\rho} Y_A K(T)
+\end{equation}
+where $\alpha_A$ is the conversion fraction of material $A$, $Y_A$ is its mass fraction, and $K(T)$ is the temperature-dependent reaction rate constant.
+
+The reaction rate constant follows an Arrhenius law:
+\begin{equation}
+K(T) = Z \exp\!\left(-\frac{E}{R\,T}\right)
+\end{equation}
+where $Z$ is the pre-exponential factor, $E$ is the activation energy, $R$ is the universal gas constant, and $T$ is the absolute temperature.
+
+The configuration is analogous to a thermogravimetric analysis (TGA), and the temperature evolution is prescribed as a linear ramp:
+\begin{equation}
+T(t) = T_0 + \beta t
+\end{equation}
+where $T_0$ is the initial temperature and $\beta$ is the heating rate.
+
+Since material $A$ is the only condensed species, its mass fraction remains equal to unity ($Y_A = 1$).
+Equation~\ref{eq:mass_balance_general} therefore simplifies to:
+\begin{equation}
+\frac{dm_A}{dt}
+= - K(T)\, m_A
+= - Z \exp\!\left(-\frac{E}{R\,T(t)}\right) m_A
+\end{equation}
+
+This expression corresponds to a first-order kinetic reaction with a known analytical solution.
+The mass of material $A$ as a function of temperature is given by:
+\begin{equation}
+m_A(t) =
+m_{A,0}
+\exp\!\left(
+- \int_{t_0}^t {Z}
+\exp\!\left(-\frac{E}{R\,(T_0+\beta t')}\right)\, dt'
+\right)
+\end{equation}
+where $m_{A,0}$ is the initial mass of the sample.
+
+The mass loss rate (MLR) is defined as:
+\begin{equation}
+\mathrm{MLR}(t) = -\frac{dm_A}{dt}
+\end{equation}
+Substituting the Arrhenius expression and the integrated mass yields:
+\begin{equation}
+\mathrm{MLR}(t) = m_{A,0}
+Z \exp\!\left(-\frac{E}{R\,(T_0 +\beta t)}\right)
+\,
+\exp\!\left(
+- \int _{t_0}^t Z \exp\!\left(-\frac{E}{R\,(T_0 +\beta t')}\right)\, dt'
+\right)
+\end{equation}
+
+This expression may also be written in a compact form as:
+\begin{equation}
+\mathrm{MLR}(T) = m_{A,0}\, K(T)\,
+\exp\!\left( - \int_{T_0}^T \frac{K(\tau)}{\beta}\, d\tau \right)
+\end{equation}
+

@@ -1,0 +1,71 @@
+\ifdefined\standalone
+\documentclass[12pt]{article}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[a4paper, margin=1in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{textcomp}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{enumitem}
+\usetikzlibrary{decorations.pathmorphing,patterns}
+\usepackage[hidelinks]{hyperref}
+\usepackage[toc,page]{appendix}
+
+\begin{document}
+\fi
+
+\section{Gas species advection}
+
+A one-dimensional porous layer of thickness $ L = 10~\mathrm{cm} $ is considered, with a uniform porosity $ \overline{\psi} = 0.6 $. Gas transport occurs solely by advection, with no diffusion and no volumetric source terms. The gaseous mixture consists of oxygen ($ \mathrm{O_2} $) and nitrogen ($ \mathrm{N_2} $) and has a density $ \rho_g = 1.3~\mathrm{kg/m^3} $. The external mass flux is fixed to $ \dot{m}'' = 10~\mathrm{g.m^{-2}.s^{-1}} $. The entering gas mass fraction is $ Y_{\mathrm{O_2}}^{\infty} = 0.22 $ and $ Y_{\mathrm{N_2}}^{\infty} = 0.78 $. Initially, the porous medium contains only nitrogen, such that $ Y_{0,\mathrm{O_2}} = 0 $ and $ Y_{0,\mathrm{N_2}} = 1 $ throughout the domain. 
+
+Under these assumptions, the transport equation for each gaseous species $ j $ reduces to the advection equation:
+\begin{equation}
+\overline{\psi} \rho_g \frac{\partial Y_j}{\partial t} + \dot{m}'' \cdot \nabla Y_j = 0
+\end{equation}
+
+The top boundary ($ z = 0 $) is impermeable to diffusion:
+\begin{equation}
+\left. \partial_z Y_j \right|_{z=0} = 0.
+\end{equation}
+
+At the bottom boundary ($ z = L $), a Dirichlet boundary condition is imposed:
+\begin{equation}
+Y_j(L,t) = Y_j^{\infty}.
+\end{equation}
+
+This equation admits an analytical solution corresponding to the translation of a step profile at a constant velocity $v = {\dot{m}''}/{\overline{\psi}\rho_g}$. The analytical solution for the species mass fraction can therefore be written as
+\begin{equation}
+Y_j(z,t) =
+\begin{cases}
+Y_j^{\infty}, & L-z < v t \\
+Y_{0,j}, & L-z \ge v t
+\end{cases}
+\end{equation}
+
+The numerical simulations are performed using a uniform spatial discretization with $ n_z = 500 $ cells, corresponding to a grid spacing of $ \Delta z = 0.2~\mathrm{mm} $. A fixed time step of $ \Delta t = 0.01~\mathrm{s} $ is used.
+
+Figures~\ref{fig:N2_advection} and~\ref{fig:O2_advection} present the evolution of the $ \mathrm{O_2} $ and $ \mathrm{N_2} $ mass fraction profiles. Numerical results are compared with the analytical solution at several times.
+
+\begin{figure}[H]
+\centering
+\begin{minipage}{0.49\textwidth}
+\includegraphics[width=\textwidth]{N2_advection.png}
+\end{minipage}
+\hfill
+\begin{minipage}{0.49\textwidth}
+\includegraphics[width=\textwidth]{O2_advection.png}
+\end{minipage}
+\caption{Species advection with $ 10~\mathrm{g/m^2/s} $.}
+\label{fig:N2_advection}
+\label{fig:O2_advection}
+\end{figure}
+
+The numerical solution accurately captures the propagation velocity of the front, as predicted by the analytical solution. However, the numerical solution exhibits a progressive smoothing of the front compared to the analytical step profile. Such diffusive behavior is due to the first-order spatial discretization of the advection scheme. This numerical diffusion is expected and decreases with smaller spatial steps. Users should be aware of this behavior.
+
+
+\ifdefined\standalone
+\end{document}
+\fi
+	

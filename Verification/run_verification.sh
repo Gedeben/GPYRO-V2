@@ -66,12 +66,6 @@ echo "==========================================================================
 echo ""
 
 
-#"#================================================#"
-# "--------- Verification Cone Calorimeter ----------"
-# "#================================================#"
-run_case "$SCRIPT_DIR/Cone_Calorimeter" "run_cone_calo.sh"
-
-
 #"#=================================================#"
 # "------------------- Validation -------------------"
 # "#================================================#"
@@ -79,11 +73,50 @@ run_case "$SCRIPT_DIR/Validation" "run_validation.sh"
 
 
 
+#"#=================================================#"
+# "----------- Verification Thermal 1D --------------"
+# "#================================================#"
+run_case "$SCRIPT_DIR/Thermal_1D" "run_thermal_1D.sh"
+
+
+#"#=================================================#"
+# "-------- Verification Thermal 2D/3D --------------"
+# "#================================================#"
+run_case "$SCRIPT_DIR/Thermal_2D_3D" "run_thermal_2D_3D.sh"
+
+#"#================================================#"
+#"------- Verification Species Conservation --------"
+#"#================================================#"
+run_case "$SCRIPT_DIR/Species_Conservation" "run_Species_Conservation.sh"
+
+
+#"#================================================#"
+# "----------- Verification Multiphyiscs -----------"
+# "#================================================#"
+run_case "$SCRIPT_DIR/Multiphyiscs" "run_multiphyics.sh"
+
+
+
+#"#================================================#"
+# "--------- Verification Gas Transport ----------"
+# "#================================================#"
+run_case "$SCRIPT_DIR/Gas_Transport" "run_gas_transport.sh"
+
+
+#"#================================================#"
+# "------ Verification Numerical Performance --------"
+# "#================================================#"
+run_case "$SCRIPT_DIR/Numerical_Performance" "run_Performance.sh"
+
+check_status_report "$SCRIPT_DIR/status_report.txt"
+
 # PDF report generation
 LATEX_FILE="verification_report"
 LATEX_CMD="\\def\\Verification{} \\input{${SCRIPT_DIR}/${LATEX_FILE}.tex}"
 
 compile_pdf_report "book"
+
+
 
 
 

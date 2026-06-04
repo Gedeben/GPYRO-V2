@@ -1,0 +1,74 @@
+\ifdefined\standalone 
+\documentclass[12pt]{article}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[a4paper, margin=1in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{textcomp}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{enumitem}
+\usetikzlibrary{decorations.pathmorphing,patterns}
+\usepackage[hidelinks]{hyperref} % <- hypertext
+
+\begin{document}
+\fi
+\section{Drying and Mass Conservation}
+
+This verification case evaluates the ability of \textsc{Gpyro} to ensure mass conservation during a coupled drying and pyrolysis process. A zero-dimensional simulation is performed on an initial $1~\mathrm{kg}$ sample of wet solid containing $20\%$ moisture by mass. The sample is subjected to a constant heating rate of $1~\mathrm{K\,min^{-1}}$.The process is modeled using two successive reactions. The first reaction represents drying, in which the wet solid releases water:
+\begin{equation}
+\mathrm{Solid_{wet}} \;\rightarrow\; \theta_1\,\mathrm{Solid_{dry}} + (1-\theta_1)\,\mathrm{H_2O}
+\label{reaction:deshydration}
+\end{equation}
+followed by a one-step pyrolysis reaction of the dry solid:
+\begin{equation}
+\mathrm{Solid_{dry}} \;\rightarrow\; \theta_2 \mathrm{Char} +(1-\theta_2) \mathrm{Pyrolysate}
+\label{reaction:pyrolysis}
+\end{equation}
+
+The kinetic parameters of the reactions are given in Table~\ref{tab:drying_0d_rxns_params}.
+
+The expected analytical outcome consists of $0.20~\mathrm{kg}$ of water, $0.48~\mathrm{kg}$ of char, and the remaining mass converted into pyrolysis gases, thereby conserving the initial $1~\mathrm{kg}$ of material.
+
+
+
+\begin{table}[H]
+\centering
+\caption{Reaction parameters for the drying and pyrolysis processes.}
+\label{tab:drying_0d_rxns_params}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{c c c c c c}
+\hline
+Reaction &
+$Z$ ($\mathrm{s^{-1}}$) &
+$E$ ($\mathrm{kJ\,mol^{-1}}$) &
+$T_{\mathrm{crit}}$ ($\mathrm{K}$) &
+$n$ ($-$) &
+$\theta$ ($-$) \\
+\hline
+Eq.~\eqref{reaction:deshydration} & $8.04\times10^{7}$ & 80  & 373.15 & 1 & 0.8 \\
+Eq.~\eqref{reaction:pyrolysis}   & $1.97\times10^{15}$ & 188 & --     & 1 & 0.6 \\
+\hline
+\end{tabular}
+\end{table}
+
+The temporal evolution of the individual mass contributions predicted by \textsc{Gpyro} is compared against the analytical solution in Figure~\ref{fig:mass_balance_figs}, demonstrating correct mass conservation throughout the simulation.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{Mass_drying.png}
+\caption{Comparison of \textsc{Gpyro} predictions with analytical mass balance results for the drying verification case.}
+\label{fig:mass_balance_figs}
+\end{figure}
+
+
+\ifdefined\standalone
+\end{document}
+\fi
+
+
+
+
+
+

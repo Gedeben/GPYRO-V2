@@ -1,0 +1,127 @@
+\section{Analytical solution of the 1D stationary pressure profile}
+\label{ann:analytical_pressure}
+
+A one–dimensional steady gas flow through a rigid porous medium is considered.  
+The domain is a segment of length $L$, defined for $z\in[0,L]$.  
+No volumetric gas sources are present, so the problem is strictly one–dimensional and steady.
+
+The mass flux follows Darcy’s law written for mass transport,
+\begin{equation}
+\dot{m}'' = \frac{\bar{K}}{\nu}\,\frac{dP}{dz},
+\label{eq:darcy}
+\end{equation}
+where $\bar{K}$ is the intrinsic permeability (m$^2$) and $\nu$ is the kinematic viscosity (m$^2$\,s$^{-1}$).  
+The viscosity is assumed inversely proportional to pressure,
+\begin{equation}
+\nu = \frac{\alpha}{P},
+\label{eq:nuP}
+\end{equation}
+which corresponds to the Chapman--Enskog dilute–gas formulation at constant temperature.
+
+Mass conservation in steady state gives
+\begin{equation}
+\frac{d\dot{m}''}{dz} = 0,
+\end{equation}
+implying a spatially uniform mass flux:
+\begin{equation}
+\dot{m}'' = \text{constant}.
+\label{eq:mconst}
+\end{equation}
+
+Substituting \eqref{eq:nuP} into Darcy’s law yields
+\begin{equation}
+\dot{m}'' = \frac{\bar{K} P}{\alpha}\,\frac{dP}{dz},
+\label{eq:darcy2}
+\end{equation}
+so the governing differential equation becomes
+\begin{equation}
+P\,\frac{dP}{dz} = \frac{\alpha}{\bar{K}}\,\dot{m}''.
+\label{eq:ode}
+\end{equation}
+
+\subsection{Case 1: fixed pressure at $z=0$ and $z=L$}
+\label{ann:analytical_pressure1}
+The boundary conditions are
+\begin{equation}
+P(0)=P_0,
+\qquad
+P(L)=P_L .
+\end{equation}
+
+Integrating \eqref{eq:ode} from $z=0$ to $z=L$ gives
+\begin{equation}
+\frac{1}{2}\left(P_L^2 - P_0^2\right)
+=
+\frac{\alpha L}{\bar{K}}\,\dot{m}''.
+\end{equation}
+
+The mass flux is therefore
+\begin{equation}
+\dot{m}'' = \frac{\bar{K}}{2\alpha L}\left(P_L^2 - P_0^2\right).
+\label{eq:flux_case1}
+\end{equation}
+
+Using \eqref{eq:ode}, the pressure profile becomes
+\begin{equation}
+P(z)^2
+=
+P_0^2
++
+\left(P_L^2 - P_0^2\right)\frac{z}{L}.
+\label{eq:profile_case1}
+\end{equation}
+
+\subsection{Case 2: fixed pressure at $z=0$ and imposed mass flux at $z=L$}
+\label{ann:analytical_pressure2}
+The boundary conditions now read
+\begin{equation}
+P(0)=P_0,
+\qquad
+\dot{m}''(L)=\dot{m}''_{\!L},
+\end{equation}
+where $\dot{m}''_{\!L}$ is the prescribed flux at $z=L$.  
+Since the flux is uniform [Eq.~\eqref{eq:mconst}], the entire domain satisfies
+\begin{equation}
+\dot{m}'' = \dot{m}''_{\!L}.
+\label{eq:flux_case2}
+\end{equation}
+
+Inserting the imposed flux into \eqref{eq:ode} gives
+\begin{equation}
+P\,\frac{dP}{dz}
+=
+\frac{\alpha}{\bar{K}}\dot{m}''_{\!L}.
+\end{equation}
+
+Integrating from $0$ to $z$ yields
+\begin{equation}
+P(z)^2 - P_0^2
+=
+2\,\frac{\alpha}{\bar{K}}\,\dot{m}''_{\!L}\,z .
+\end{equation}
+
+The pressure profile for Case~2 therefore reads
+\begin{equation}
+P(z)
+=
+\sqrt{
+P_0^2
++
+2\,\frac{\alpha}{\bar{K}}\,\dot{m}''_{\!L}\,z
+}.
+\label{eq:profile_case2}
+\end{equation}
+
+If desired, the resulting pressure at $z=L$ follows directly as
+\begin{equation}
+P(L)
+=
+\sqrt{
+P_0^2
++
+2\,\frac{\alpha L}{\bar{K}}\,\dot{m}''_{\!L}
+}.
+\end{equation}
+
+This concludes the analytical pressure solutions for both a fully prescribed-pressure boundary configuration and a mixed pressure–flux boundary configuration.
+

@@ -43,8 +43,8 @@ GITINFOPGI=-Mpreprocess $(GITINFO_BASE) -DBUILDDATE_PP=\""$(BUILD_DATE)\""
 # Definition of object variables
 
 
-obj_serial = gpyro_prec.o gpyro_vars.o gpyro_funcs.o gpyro_mass.o gpyro_gas.o gpyro_thermal.o gpyro_bc.o gpyro_io.o\
-             gpyro_pyro.o gpyro_init.o gpyro_main.o
+obj_serial = gpyro_prec.o gpyro_vars.o gpyro_funcs.o gpyro_check.o gpyro_mesh.o gpyro_mass.o gpyro_gas.o gpyro_thermal.o\
+             gpyro_bc.o gpyro_io.o gpyro_pyro.o gpyro_init.o gpyro_main.o
              
 
 objwin_serial = $(obj_serial:.o=.obj)
@@ -73,6 +73,7 @@ gpyro_vars.o : FFLAGS += $(FOPENMPFLAGS)
 gpyro_pyro.o : FFLAGS += $(FOPENMPFLAGS)
 gpyro_bc.o   : FFLAGS += $(FOPENMPFLAGS)
 gpyro_io.o   : FFLAGS += $(FOPENMPFLAGS)
+gpyro_mesh.o : FFLAGS += $(FOPENMPFLAGS)
 gpyro_mass.o : FFLAGS += $(FOPENMPFLAGS)
 gpyro_thermal.o: FFLAGS += $(FOPENMPFLAGS)
 gpyro_gas.o: FFLAGS += $(FOPENMPFLAGS)
@@ -82,6 +83,7 @@ gpyro_vars.obj  : FFLAGS += $(FOPENMPFLAGS)
 gpyro_pyro.obj  : FFLAGS += $(FOPENMPFLAGS)
 gpyro_bc.obj    : FFLAGS += $(FOPENMPFLAGS)
 gpyro_io.obj    : FFLAGS += $(FOPENMPFLAGS)
+gpyro_mesh.obj  : FFLAGS += $(FOPENMPFLAGS)
 gpyro_mass.obj  : FFLAGS += $(FOPENMPFLAGS)
 gpyro_thermal.obj  : FFLAGS += $(FOPENMPFLAGS)
 gpyro_gas.obj  : FFLAGS += $(FOPENMPFLAGS)
@@ -138,24 +140,28 @@ gnu_win : setup $(obj_serial)
 gpyro_vars.o : gpyro_prec.o
 gpyro_funcs.o : gpyro_prec.o gpyro_vars.o
 gpyro_io.o : gpyro_prec.o gpyro_vars.o gpyro_funcs.o
+gpyro_check.o : gpyro_prec.o gpyro_vars.o gpyro_io.o
 gpyro_bc.o : gpyro_prec.o gpyro_vars.o gpyro_funcs.o
 gpyro_thermal.o : gpyro_prec.o gpyro_vars.o gpyro_funcs.o gpyro_bc.o
-gpyro_mass.o : gpyro_prec.o gpyro_vars.o gpyro_funcs.o gpyro_io.o
+gpyro_mesh.o : gpyro_prec.o gpyro_vars.o gpyro_funcs.o gpyro_io.o
+gpyro_mass.o : gpyro_prec.o gpyro_vars.o gpyro_funcs.o gpyro_io.o gpyro_mesh.o
 gpyro_gas.o : gpyro_prec.o gpyro_vars.o gpyro_funcs.o gpyro_io.o gpyro_bc.o
-gpyro_init.o : gpyro_prec.o gpyro_vars.o gpyro_funcs.o gpyro_io.o gpyro_mass.o
+gpyro_init.o : gpyro_prec.o gpyro_vars.o gpyro_funcs.o gpyro_io.o gpyro_mass.o gpyro_mesh.o
 gpyro_pyro.o : gpyro_prec.o gpyro_vars.o gpyro_funcs.o gpyro_io.o gpyro_mass.o gpyro_thermal.o gpyro_gas.o
-gpyro_main.o : gpyro_prec.o gpyro_vars.o gpyro_funcs.o gpyro_io.o gpyro_bc.o gpyro_init.o gpyro_pyro.o 
+gpyro_main.o : gpyro_prec.o gpyro_vars.o gpyro_funcs.o gpyro_io.o gpyro_bc.o gpyro_init.o gpyro_pyro.o gpyro_check.o
 
 gpyro_vars.obj : gpyro_prec.obj
 gpyro_funcs.obj : gpyro_prec.obj gpyro_vars.obj
 gpyro_io.obj : gpyro_prec.obj gpyro_vars.obj gpyro_funcs.obj
+gpyro_check.obj : gpyro_prec.obj gpyro_vars.obj gpyro_io.obj
 gpyro_bc.obj : gpyro_prec.obj gpyro_vars.obj gpyro_funcs.obj
 gpyro_thermal.obj : gpyro_prec.obj gpyro_vars.obj gpyro_funcs.obj gpyro_bc.obj
-gpyro_mass.obj : gpyro_prec.obj gpyro_vars.obj gpyro_funcs.obj gpyro_io.obj
+gpyro_mesh.obj : gpyro_prec.obj gpyro_vars.obj gpyro_funcs.obj gpyro_io.obj
+gpyro_mass.obj : gpyro_prec.obj gpyro_vars.obj gpyro_funcs.obj gpyro_io.obj gpyro_mesh.obj
 gpyro_gas.obj : gpyro_prec.obj gpyro_vars.obj gpyro_funcs.obj gpyro_io.obj gpyro_bc.obj
 gpyro_init.obj : gpyro_prec.obj gpyro_vars.obj gpyro_funcs.obj gpyro_io.obj
-gpyro_pyro.obj : gpyro_prec.obj gpyro_vars.obj gpyro_funcs.obj gpyro_io.obj gpyro_mass.obj gpyro_thermal.obj gpyro_gas.obj
-gpyro_main.obj : gpyro_prec.obj gpyro_vars.obj gpyro_funcs.obj gpyro_io.obj gpyro_bc.obj gpyro_init.obj gpyro_pyro.obj 
+gpyro_pyro.obj : gpyro_prec.obj gpyro_vars.obj gpyro_funcs.obj gpyro_io.obj gpyro_mass.obj gpyro_thermal.obj gpyro_gas.obj gpyro_mesh.obj
+gpyro_main.obj : gpyro_prec.obj gpyro_vars.obj gpyro_funcs.obj gpyro_io.obj gpyro_bc.obj gpyro_init.obj gpyro_pyro.obj gpyro_check.obj
 
 #*** Clean Target to remove Object and Module files ***
 

@@ -1,0 +1,55 @@
+\ifdefined\standalone
+\documentclass[12pt]{article}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[a4paper, margin=1in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{textcomp}
+\usepackage{amsmath}
+\usepackage{array}
+\usepackage[font=footnotesize]{subcaption}
+\usepackage[hidelinks]{hyperref}
+\begin{document}
+\fi
+\section{Deformation}
+
+A one-dimensional simulation is performed on a slab with an initial thickness $L = 1~\mathrm{cm}$. The slab is composed of a single condensed-phase material, A, undergoing a single degradation reaction in which a fraction $\theta$ (kg/kg) of the initial mass is converted into a solid product B, while the remaining fraction $(1-\theta)$ is released as gaseous species G,  i.e.,$\mathrm{A} \rightarrow \theta\,\mathrm{B} + (1-\theta)\,\mathrm{G}$.
+
+the slab is exposed to a constant external radiative heat flux of $100~\mathrm{kW\,m^{-2}}$ until it is fully consumed by the reaction.
+
+The deformation factor $D$ is defined as the ratio of the final thickness to the initial thickness. Analytically, at the end of the reaction, it is given by (see Gpyro user guide~\cite{Gpyro_User_Guide_new}):
+\begin{equation}
+D = \frac{\rho_A}{\rho_B}\,\theta,
+\end{equation}
+where $\rho_A$ and $\rho_B$ are the bulk densities of materials A and B. In Gpyro, the stoichiometric coefficient $\theta$ is prescribed indirectly via the user parameter $\chi$ as $\theta = 1 + (\rho_B/\rho_A - 1)\chi$.
+
+Five configurations are considered, corresponding to different reaction behaviors obtained by varying the material densities and the parameter $\chi$. The first case corresponds to a purely condensed-phase reaction that does not produce gases, with deformation depending solely on the product and reactant densities. The four other reactions involve gas production: a reaction that does not induce deformation, a shrinking reaction, a swelling reaction, and finally a non-charring material for which the reaction produces only gases. The parameters and expected deformation for each case are summarized in Table~\ref{tab:deformation_cases}.
+
+\begin{table}[H]
+\centering
+\caption{parameters and expected deformation for the five verification cases.}
+\label{tab:deformation_cases}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{c c c c c c c}
+\hline
+Case & Description & $\rho_A$ ($\mathrm{kg\,m^{-3}}$) & $\rho_B$ ($\mathrm{kg\,m^{-3}}$) & $\chi$ (-) & $\theta$(-)  & $D$ (-) \\
+\hline
+1 & Pure condensed-phase reaction & 1000 & 2000 & 0.0 & 1.00 & 0.50 \\
+2 & No deformation & 1000 & 630 & 1.0 & 0.63 & 1.00 \\
+3 & Swelling & 1000 & 400 & 1/3 & 0.80 & 2.00 \\
+4 & Shrinking & 1000 & 600 & 1.5 & 0.40 & 0.67 \\
+5 & Non-charring & 1000 & - & 1.0 & 0 & 0 \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centering
+ \includegraphics[width=0.7\linewidth]{deformation.png}
+ \caption{Deformation evolution compared to analytical solutions for all cases}
+\label{fig:Deformation_ABCD}
+\end{figure}
+
+\ifdefined\standalone
+\end{document}
+\fi

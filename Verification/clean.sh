@@ -1,7 +1,7 @@
 #!/bin/bash
 
 BASE_DIR="./"
-LONG_CASES=("0.0001mm_dt0.05s" "0.001mm_dt0.05s" "0.1mm_dt0.0005s")
+LONG_CASES=("0.0001mm_dt0.05s" "0.001mm_dt0.05s" "0.1mm_dt0.0005s" "dt_0001s" "dz_0001mm")
 OMP_FOLDER="OMP_parallelization"
 
 
@@ -9,7 +9,10 @@ echo "🔎 Scanning and cleaning in: $BASE_DIR"
 
 # Extensions et fichiers autorisés
 allowed_exts=("sh" "py" "data" "tex" "bib" "txt" "pdf" "fds" "md" "cmp" "cnd" "ini" "ssf")
-allowed_csv=("analytical_results.csv" "heat_conduction_kc.csv" "reference_cc_devc.csv" "output_ThermaKin.csv" "1d_rad_conv_devc.csv" "radiation_loss_devc.csv" "MaCFP-PMMA_Gasification_q50_Mass_R3.csv")
+allowed_files=("analytical_results.csv" "theoretical_results.csv" "reference_cc_devc.csv" "output_ThermaKin.csv" "1d_rad_conv_devc.csv" "radiation_loss_devc.csv" "MaCFP-PMMA_Gasification_q50_Mass_R3.csv" "Experimental_data_smoldering.csv" "Smoldering_experiment_presentation.png" "ht3d_ibeam_prof_1.csv" "ht3d_ibeam_prof_2.csv" "ht3d_ibeam_prof_3.csv" "ht3d_ibeam_devc.csv" "I_beam_schematic.png" "logo_edf.png")
+
+
+generic_allowed_patterns=("Gpyro_V08*.csv")
 
 # Liste des fichiers à supprimer
 to_delete=()
@@ -40,17 +43,31 @@ while IFS= read -r -d '' file; do
       break
     fi
   done
+  
+  # ✅ Garde les fichiers correspondant à des motifs génériques
+  if [[ $keep == false ]]; then
+    for pattern in "${generic_allowed_patterns[@]}"; do
+      if [[ "$filename" == $pattern ]]; then
+        keep=true
+        break
+      fi    done
+  fi
 
-  # ✅ Garde les CSV explicitement autorisés
-  if [[ "$extension" == "csv" && $keep == false ]]; then
-    for allowed_name in "${allowed_csv[@]}"; do
+
+  # ✅ Garde les fichiers explicitement autorisés
+  if [[ $keep == false ]]; then
+    for allowed_name in "${allowed_files[@]}"; do
       if [[ "$filename" == "$allowed_name" ]]; then
         keep=true
         break
       fi
     done
   fi
-
+  
+  if [[ "$filename" == master.bib ]]; then
+     keep=false
+  fi
+  
   if ! $keep; then
     to_delete+=("$file")
   fi

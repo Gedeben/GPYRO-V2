@@ -1,0 +1,69 @@
+\ifdefined\GasTransport
+\documentclass[12pt]{report}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[a4paper, margin=1in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{textcomp}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{enumitem}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage[font=footnotesize]{subcaption}
+\usetikzlibrary{decorations.pathmorphing,patterns}
+\usepackage[hidelinks]{hyperref} % <- hypertext
+\usepackage{caption}
+
+% <- Define folder macros for modularity
+\newcommand{\INSTGASRELEASE}{Instantaneous_gas_release}  % Instantaneous gas release
+\newcommand{\DARCYPFIXED}{darcy_Pfixed}  % darcy driven flow with P fixed at BCs
+\newcommand{\DARCYMFIXED}{darcy_mfixed}  % darcy driven flow with imposed flux
+\newcommand{\GASDIFFUSION}{Gas_Diffusion}  % Gas species diffusion solved YJ 
+\newcommand{\GASADVECTION}{YJ_Advection}  % Gas species advection solved YJ 
+\newcommand{\GASSOLIDEQUILIBRIUM}{Thermal_equilibrium}  % Gas solid thermal equilibrium 
+
+\begin{document}
+\fi
+
+\graphicspath{
+  {\INSTGASRELEASE/}
+  {\DARCYPFIXED/}
+  {\DARCYMFIXED/}
+  {\GASDIFFUSION/}
+  {\GASADVECTION/}
+  {\GASSOLIDEQUILIBRIUM/}
+}
+
+
+\chapter{Gas Transport}
+
+\newpage
+\input{\INSTGASRELEASE/instantaneous_gas_release.tex}
+
+\newpage
+\input{\DARCYPFIXED/darcy_fixed_pressure.tex}
+
+\newpage
+\input{\DARCYMFIXED/darcy_fixed_flux.tex}
+
+\newpage
+\input{\GASDIFFUSION/gas_species_diffusion.tex}
+
+\newpage
+\input{\GASADVECTION/gas_species_advection.tex}
+
+\newpage
+\input{\GASSOLIDEQUILIBRIUM/Thermal_equilibrium.tex}
+
+
+\ifdefined\GasTransport
+\newpage
+\appendix
+\renewcommand{\thesection}{Appendix~\Alph{section}}
+
+\input{Annexe_darcy_solution.tex}
+\end{document}
+\fi
+

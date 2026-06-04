@@ -27,7 +27,7 @@ SUBROUTINE READ_GPYRO
 INTEGER, PARAMETER :: NSPECMAX = 50, NRXNMAX = 50
 
 ! Variables for namelist group GPYRO_GENERAL:
-CHARACTER(300) :: MESSAGE
+CHARACTER(400) :: MESSAGE
 CHARACTER(4) :: SOLVER_MAIN_DIRECTIONS
 REAL(EB) :: TAMB,GX,GZ,GY,DT0,TREF,P0,ALPHA,ALPHA_YIS,ALPHA_YJG,ALPHA_H,ALPHA_HG,ALPHA_P,TMPTOL, &
             HTOL,YITOL,PTOL,EPS,VHLC,YJTOL,HGTOL,HCV, NU_A,NU_B,NU_C,FDS_HEAT_OF_COMBUSTION,TORTUOSITY_FACTOR, &
@@ -42,6 +42,8 @@ LOGICAL :: THERMAL_EQUILIBRIUM,SOLVE_GAS_ENERGY,SOLVE_PRESSURE, SOLVE_GAS_YJ,EXP
             GASES_PRODUCED_AT_TSOLID,USE_TORTUOSITY_FACTOR_FOR_FLUX,USE_CONSTANT_HM0, &
             FIX_DOMAIN_TEMPERATURE, KOZENY_CARMAN, ANISOTROPIC_SPECIES(1:NSPECMAX), &
             USE_ANISOTROPIC_SOLID_ENTHALPY_SOLVER, GEOMETRY_IS_UPSIDE_DOWN
+
+INTEGER :: SOLVER_DEFORMATION_MODE
 
 ! Variables for namelist group GPYRO_OUTPUT
 CHARACTER(60) :: CASENAME
@@ -81,9 +83,14 @@ REAL(EB), DIMENSION (1:NSPECMAX,1:NRXNMAX) :: GYIELDS
 REAL(EB), DIMENSION (1:NSPECMAX,1:NRXNMAX) :: HGYIELDS
 
 ! Variables for namelist group GPYRO_ALLBC:
+INTEGER :: ISURF, NSURF_IDX
+INTEGER, DIMENSION(1:100) :: SURF_IDX(100)
 REAL(EB), DIMENSION(1:100) :: T,QE,HC,TINF,TFIXED,MDOTPP,PRES,HM
 LOGICAL, DIMENSION (1:100) :: RERADIATION
 REAL(EB), DIMENSION(1:100,1:NSPECMAX) :: YJINF
+REAL(EB), DIMENSION(1:100) :: QEG, HCG, TINFG, TFIXEDG
+REAL(EB), DIMENSION(1:100) :: NHC !DEAD option
+
 
 ! Variables for namelist group GPYRO_CASES:
 INTEGER :: NCASES
@@ -96,13 +103,9 @@ INTEGER :: IC, NIC
 REAL(EB) :: TMP_INITIAL(1:100), TMPG_INITIAL(1:100), P_INITIAL(1:100)
 REAL(EB), DIMENSION (1:100,1:NSPECMAX) :: YI0, YJ0
 
-!Variables for namelist group GPYRO_ALLBC:
-INTEGER :: ISURF, NSURF_IDX
-INTEGER, DIMENSION(1:100) :: SURF_IDX(100)
-REAL(EB), DIMENSION(1:100) :: QEG, HCG, TINFG, TFIXEDG,NHC
 
 !Variables for namelist group GPYRO_GEOM:
-INTEGER :: IOBST, NMESH, NOBST 
+INTEGER :: IOBST, NMESH, NOBST , IDUMP 
 INTEGER, DIMENSION(1:100) :: NCELLZ,NCELLX,NCELLY,DEFAULT_IC,ICNUM 
 REAL(EB), DIMENSION(1:100) :: ZDIM,XDIM,YDIM,X1,X2,Z1,Z2,Y1,Y2
 REAL(EB), DIMENSION(1:100) :: OFFSETZ, OFFSETX, OFFSETY ! DEAD parameter
@@ -114,7 +117,6 @@ LOGICAL, DIMENSION(1:100) :: HALF_CELLS_AT_BC
 ! Misc local variables:
 INTEGER :: IOS,ISPEC,ICASE,IRXN,NSSPEC, ID_MESH
 CHARACTER(300) :: FN
-CHARACTER(LEN=100) :: INT_TO_STR
  
 !Namelist groups:
 NAMELIST /GPYRO_GENERAL/ P0,TAMB,GX,GZ,GY,DT0,TREF,NTDMA_ITERATIONS, &
@@ -127,7 +129,7 @@ NAMELIST /GPYRO_GENERAL/ P0,TAMB,GX,GZ,GY,DT0,TREF,NTDMA_ITERATIONS, &
          GPYRO_TO_GPYRO_TOLERANCE, &
          SOLVER_MAIN_DIRECTIONS, FIX_DOMAIN_TEMPERATURE, &
          EPS_YJG, EPS_YIS, KOZENY_CARMAN, ANISOTROPIC_SPECIES, USE_ANISOTROPIC_SOLID_ENTHALPY_SOLVER, &
-         GEOMETRY_IS_UPSIDE_DOWN, &
+         GEOMETRY_IS_UPSIDE_DOWN,SOLVER_DEFORMATION_MODE, &
          DTMIN_KILL, &
          ADD_TO_OBST_XB, ADD_TO_OBST_X, ADD_TO_OBST_Y, ADD_TO_OBST_Z,OBST_SCALING_FACTOR, & ! DEAD OPTION
          DUMP_DETAILED_CONVERGENCE ! Option mooved to GPYRO_OUTPUT
@@ -147,7 +149,8 @@ NAMELIST /GPYRO_OUTPUT/ CASENAME,N_POINT_QUANTITIES,N_PROFILE_QUANTITIES, N_SMOK
 NAMELIST /GPYRO_SPROPS/ NSSPEC,NAME,K0Z,NKZ,R0,NR,C0,NC,EMIS,KAPPA,TMELT,DHMELT,SIGMA2MELT,GAMMA,PERMZ, & 
                         RS0,PORE_DIAMETER,K0X,NKX,PERMX,K0Y,NKY,PERMY
 
-NAMELIST /GPYRO_GPROPS/ NGSPEC,IBG,IO2,CPG,NAME,YJ0,M,SIGMA,EPSOK,C0,NC
+NAMELIST /GPYRO_GPROPS/ NGSPEC,NAME,IBG,IO2,CPG,M,SIGMA,EPSOK, &
+                        C0, NC, YJ0 !DEAD option 
 
 NAMELIST /GPYRO_RXNS/ NRXNS,CFROM,CTO,Z,E,DHS,DHV,CHI,ORDER,ORDERO2,IKINETICMODEL,IO2TYPE,M,KCAT,ICAT,TCRIT 
 
@@ -161,7 +164,8 @@ NAMELIST /GPYRO_CASES/ NCASES,IMESH,TSTOP,ZEROD,BETA
 
 NAMELIST /GPYRO_IC/ NIC,TMP_INITIAL,TMPG_INITIAL,P_INITIAL,YI0,YJ0
 
-NAMELIST /GPYRO_ALLBC/ NSURF_IDX, SURF_IDX, T, QE, HC, NHC, TINF, RERADIATION, TFIXED, MDOTPP, PRES, QEG, HCG, TINFG, TFIXEDG, HM, YJINF
+NAMELIST /GPYRO_ALLBC/ NSURF_IDX, SURF_IDX, T, QE, HC, TINF, RERADIATION, TFIXED, MDOTPP, PRES, QEG, HCG, TINFG, TFIXEDG, HM, YJINF, &
+                      NHC ! DEAD OPTION
 
 NAMELIST /GPYRO_GEOM/ NMESH, NOBST, ZDIM, NCELLZ, XDIM, NCELLX, YDIM, NCELLY, HALF_CELLS_AT_BC,&
                       GEOMETRY_FILE, DEFAULT_SURF_IDX, DEFAULT_IC, &
@@ -191,7 +195,9 @@ ENDIF
 
 READ(LUINPUT,NML=GPYRO_GENERAL,IOSTAT=IOS)
 IF (IOS .GT. 0) THEN
-   MESSAGE='Error: Problem with namelist group &GPYRO_GENERAL.'
+   MESSAGE = 'Error: Problem reading namelist group &GPYRO_GENERAL. ' // &
+   'Common issues include: misspelled parameter names, use of undefined keywords, ' // &
+   'missing namelist terminator ("/")'
    CALL SHUTDOWN_GPYRO(MESSAGE)
 ENDIF
 IF (FDSMODE) CALL GPYRO_FDSMODE('GPYRO_GENERAL')
@@ -227,6 +233,8 @@ GPG%CONVENTIONAL_RXN_ORDER       = CONVENTIONAL_RXN_ORDER
 GPG%KOZENY_CARMAN                = KOZENY_CARMAN
 GPG%USE_ANISOTROPIC_SOLID_ENTHALPY_SOLVER = USE_ANISOTROPIC_SOLID_ENTHALPY_SOLVER
 GPG%GEOMETRY_IS_UPSIDE_DOWN      = GEOMETRY_IS_UPSIDE_DOWN
+GPG%SOLVER_DEFORMATION_MODE      = SOLVER_DEFORMATION_MODE
+
 
 GPG%TMPTOL                       = TMPTOL
 GPG%HTOL                         = HTOL
@@ -261,28 +269,15 @@ GPG%ANISOTROPIC_SPECIES(:)         = ANISOTROPIC_SPECIES(:)
 GPG%SOLVER_MAIN_DIRECTIONS         = SOLVER_MAIN_DIRECTIONS
 GPG%FIX_DOMAIN_TEMPERATURE         = FIX_DOMAIN_TEMPERATURE
 
-! Now get NGPYROBC, "Number of Gpyro boundary conditions".
-! For an FDS implementation this is determined elsewhere from the 
-! geometry specified in the FDS input file.
-! For a 1D standalone or GA implementation, NGPYROBC=1. 
-! However, for 2D standalone implementation NGPYROBC > 1.
-
-! If this is a standalone implementation:	
-IF (IGPYRO_TYPE .EQ. 1) THEN 
-! Read in namelist group GPYRO_CASES
-   CALL SET_GPYRO_DEFAULTS_CASES ! Set default parameter values
-   REWIND(LUINPUT); READ(LUINPUT,NML=GPYRO_CASES,IOSTAT=IOS)
-   IF (IOS >  0) THEN
-      MESSAGE='Error: Problem with namelist group &GPYRO_CASES.'
-      CALL SHUTDOWN_GPYRO(MESSAGE)
-   ENDIF
-ENDIF
 
 ! Read in GPYRO_SPROPS
 CALL SET_GPYRO_DEFAULTS_SPROPS ! Set default parameter values
 REWIND(LUINPUT); READ(LUINPUT,NML=GPYRO_SPROPS,IOSTAT=IOS)
 IF (IOS .GT.  0) THEN
-   MESSAGE='Error: Problem with namelist group &GPYRO_SPROPS.'
+   MESSAGE = 'Error: Problem reading namelist group &GPYRO_SPROPS. ' // &
+   'Common issues include: misspelled parameter names, use of undefined keywords, ' // &
+   'missing namelist terminator ("/"), or incorrect formatting such as inserting spaces ' // &
+   'between a variable name and its index (e.g., use K0Z  (1) = 1 instead of K0Z(1) = 1).'
    CALL SHUTDOWN_GPYRO(MESSAGE)
 ENDIF
 IF (GPG%FDSMODE) CALL GPYRO_FDSMODE('GPYRO_SPROPS ')
@@ -313,14 +308,12 @@ ALLOCATE(SPROP%NKY          (1:NSSPEC) )
 ALLOCATE(SPROP%PERMY        (1:NSSPEC) )
 
 ! Make sure no unused species are defined:
-DO ISPEC = NSSPEC + 1, 20
+DO ISPEC = NSSPEC + 1, NSSPEC+5
    IF (NAME(ISPEC) .NE. 'null') THEN
       MESSAGE='More than NSPEC solid species have been defined. Increase NSPEC or delete properties for unused species.'
       CALL SHUTDOWN_GPYRO(MESSAGE)
    ENDIF
 ENDDO
-
-GPG%SOLVE_POROSITY = .FALSE.
 
 ! Copy data from namelist group GPYRO_SPROPS:
 DO ISPEC = 1, NSSPEC
@@ -338,7 +331,7 @@ DO ISPEC = 1, NSSPEC
    SPROP%SIGMA2MELT(ISPEC)    = SIGMA2MELT(ISPEC)
    SPROP%GAMMA(ISPEC)         = GAMMA(ISPEC)
    SPROP%PERMZ(ISPEC)         = PERMZ(ISPEC)
-
+   SPROP%RS0(ISPEC)           = RS0(ISPEC)
    SPROP%PORE_DIAMETER(ISPEC) = PORE_DIAMETER(ISPEC)
    SPROP%K0X(ISPEC)           = K0X(ISPEC)
    SPROP%NKX(ISPEC)           = NKX(ISPEC)
@@ -346,42 +339,37 @@ DO ISPEC = 1, NSSPEC
    SPROP%K0Y(ISPEC)           = K0Y(ISPEC)
    SPROP%NKY(ISPEC)           = NKY(ISPEC)
    SPROP%PERMY(ISPEC)         = PERMY(ISPEC)
-
-   IF (RS0(ISPEC) .LT. 0D0) RS0(ISPEC) = R0(ISPEC) ! By defaut if RS0 not specified
-   SPROP%RS0(ISPEC)           = RS0(ISPEC)
-
-   IF (R0(ISPEC) .GT. RS0(ISPEC)) THEN
-      WRITE(INT_TO_STR, '(I0)') ISPEC
-      MESSAGE = 'Error: The bulk density R0 of species ISPEC=' // TRIM(ADJUSTL(INT_TO_STR)) // ' cannot be greater than the pure solid density RS0.'
-      CALL SHUTDOWN_GPYRO(MESSAGE)
-   ENDIF
-
-   IF (R0(ISPEC) .NE. RS0(ISPEC)) THEN
-      !solve porosity onlu if is needed
-      GPG%SOLVE_POROSITY = .TRUE.
-   ENDIF
 ENDDO
 
 ! Read in namelist groups GPYRO_RXNS, GPYRO_HGRXNS, GYPROGPROPS
-! Do this only to get NRXNS, NHGRXNS, and NGSPEC
+! Do this to get NRXNS, NHGRXNS, and NGSPEC
 CALL SET_GPYRO_DEFAULTS_RXNS ! Set default parameter values
 REWIND(LUINPUT); READ(LUINPUT,NML=GPYRO_RXNS,IOSTAT=IOS)
 IF (IOS .GT.  0) THEN
-   MESSAGE='Error: Problem with namelist group &GPYRO_RXNS.'
+   MESSAGE = 'Error: Problem reading namelist group &GPYRO_RXNS. ' // &
+   'Common issues include: misspelled parameter names, use of undefined keywords, ' // &
+   'missing namelist terminator ("/"), or incorrect formatting such as inserting spaces ' // &
+   'between a variable name and its index (e.g., use K0Z  (1) = 1 instead of K0Z(1) = 1).'
    CALL SHUTDOWN_GPYRO(MESSAGE)
 ENDIF
 
 CALL SET_GPYRO_DEFAULTS_HGRXNS ! Set default parameter values
 REWIND(LUINPUT); READ(LUINPUT,NML=GPYRO_HGRXNS,IOSTAT=IOS)
 IF (IOS .GT.  0) THEN 
-   MESSAGE='Error: Problem with namelist group &GPYRO_HGRXNS.'
+   MESSAGE = 'Error: Problem reading namelist group &GPYRO_HGRXNS. ' // &
+   'Common issues include: misspelled parameter names, use of undefined keywords, ' // &
+   'missing namelist terminator ("/"), or incorrect formatting such as inserting spaces ' // &
+   'between a variable name and its index (e.g., use K0Z  (1) = 1 instead of K0Z(1) = 1).'
    CALL SHUTDOWN_GPYRO(MESSAGE)
 ENDIF
 
 CALL SET_GPYRO_DEFAULTS_GPROPS ! Set default parameter values
 REWIND(LUINPUT); READ(LUINPUT,NML=GPYRO_GPROPS,IOSTAT=IOS)
 IF (IOS .GT.  0) THEN
-   MESSAGE='Error: Problem with namelist group &GPYRO_GPROPS.'
+   MESSAGE = 'Error: Problem reading namelist group &GPYRO_GPROPS. ' // &
+   'Common issues include: misspelled parameter names, use of undefined keywords, ' // &
+   'missing namelist terminator ("/"), or incorrect formatting such as inserting spaces ' // &
+   'between a variable name and its index (e.g., use K0Z  (1) = 1 instead of K0Z(1) = 1).'
    CALL SHUTDOWN_GPYRO(MESSAGE)
 ENDIF
 
@@ -390,27 +378,24 @@ GPROP%NHGRXN = NHGRXNS
    
 ! Make sure at least one gaseous species is defined
 IF (NGSPEC .LT. 1) THEN
-   MESSAGE='Must specify at least 1 gaseous species and assign it a specific heat. This applies even if the gas-phase species conservation equation is not solved.'
+   MESSAGE='Must specify at least 1 gaseous species and assign it a specific heat. '// &
+            'This applies even if the gas-phase species conservation equation is not solved.'
    CALL SHUTDOWN_GPYRO(MESSAGE)
 ENDIF
+
+CALL SET_GPYRO_DEFAULTS_GPROPS ! Set default parameter values
+REWIND(LUINPUT); READ(LUINPUT,NML=GPYRO_GPROPS,IOSTAT=IOS)
 
 ! Allocate gaseous property arrays:
 ALLOCATE(GPROP%NAME    (1:NGSPEC) )
 ALLOCATE(GPROP%M       (1:NGSPEC) )
 ALLOCATE(GPROP%SIGMA   (1:NGSPEC) )
 ALLOCATE(GPROP%EPSOK   (1:NGSPEC) )
-ALLOCATE(GPROP%C0      (1:NGSPEC) )
-ALLOCATE(GPROP%NC      (1:NGSPEC) )
+!ALLOCATE(GPROP%C0      (1:NGSPEC) )
+!ALLOCATE(GPROP%NC      (1:NGSPEC) )
 ALLOCATE(GPROP%YIELDS  (1:NGSPEC,1:NRXNS) )
 ALLOCATE(GPROP%HGYIELDS(1:NGSPEC,1:NHGRXNS))
 
-! Read namelist groups GPYRO_GPROPS
-CALL SET_GPYRO_DEFAULTS_GPROPS ! Set default parameter values
-REWIND(LUINPUT); READ(LUINPUT,NML=GPYRO_GPROPS,IOSTAT=IOS)
-IF (IOS .GT.  0) THEN
-   MESSAGE='Error: Problem with namelist group &GPYRO_GPROPS.'
-   CALL SHUTDOWN_GPYRO(MESSAGE)
-ENDIF
 IF (GPG%FDSMODE) CALL GPYRO_FDSMODE('GPYRO_GPROPS ')
 
 GPROP%NGSPEC               = NGSPEC
@@ -420,7 +405,7 @@ GPG%HGTOL                  = HGTOL
 GPROP%CPG                  = CPG
 
 ! Make sure no unused gaseous species are defined:
-DO ISPEC = NGSPEC + 1, 20
+DO ISPEC = NGSPEC + 1, NGSPEC+ 5
    IF (NAME(ISPEC) .NE. 'null') THEN
       MESSAGE='More than NGSPEC gaseous species have been defined. Increase NGSPEC or delete properties for unused species.'
       CALL SHUTDOWN_GPYRO(MESSAGE)
@@ -432,30 +417,26 @@ DO ISPEC = 1, NGSPEC
    GPROP%M(ISPEC)       = M(ISPEC)
    GPROP%SIGMA(ISPEC)   = SIGMA(ISPEC)
    GPROP%EPSOK(ISPEC)   = EPSOK(ISPEC)
-   GPROP%C0(ISPEC)      = C0(ISPEC)
-   GPROP%NC(ISPEC)      = NC(ISPEC)
+   !GPROP%C0(ISPEC)      = C0(ISPEC)
+   !GPROP%NC(ISPEC)      = NC(ISPEC)
 ENDDO
 
 ! Allocate reaction and homogeneous reaction arrays: 
 ALLOCATE(RXN  (1:NRXNS  ) )
 ALLOCATE(HGRXN(1:NHGRXNS) )
 
-! Read in namelist group GPYRO_RXNS
-CALL SET_GPYRO_DEFAULTS_RXNS ! Set default parameter values
-REWIND(LUINPUT); READ(LUINPUT,NML=GPYRO_RXNS,IOSTAT=IOS)
-IF (IOS .GT. 0) THEN
-   MESSAGE='Error: Problem with namelist group &GPYRO_RXNS.'
-   CALL SHUTDOWN_GPYRO(MESSAGE)
-ENDIF
 IF (GPG%FDSMODE) CALL GPYRO_FDSMODE('GPYRO_RXNS   ')
 
 ! Make sure no unused reactions are defined:
-DO IRXN = NRXNS + 1, 20
+DO IRXN = NRXNS + 1, NRXNS+5
    IF (CFROM(IRXN) .NE. 'null' .OR. CTO(IRXN) .NE. 'null') THEN
-      MESSAGE='More than NRXNS have been defined. Increase NRXNS or delete unused reactions.'
+      MESSAGE='Error : More than NRXNS have been defined. Increase NRXNS or delete unused reactions.'
       CALL SHUTDOWN_GPYRO(MESSAGE)
    ENDIF
 ENDDO
+
+CALL SET_GPYRO_DEFAULTS_RXNS ! Set default parameter values
+REWIND(LUINPUT); READ(LUINPUT,NML=GPYRO_RXNS,IOSTAT=IOS)
 
 ! Copy data from namelist group GPYRO_RXNS:
 DO IRXN = 1, NRXNS
@@ -476,22 +457,18 @@ DO IRXN = 1, NRXNS
    RXN(IRXN)%TCRIT          = TCRIT(IRXN)
 ENDDO
 
-! Read in GPYRO_HGRXNS
-CALL SET_GPYRO_DEFAULTS_HGRXNS ! Set default parameter values
-REWIND(LUINPUT); READ(LUINPUT,NML=GPYRO_HGRXNS,IOSTAT=IOS)
-IF (IOS .GT. 0) THEN 
-   MESSAGE='Error: Problem with namelist group &GPYRO_HGRXNS.'
-   CALL SHUTDOWN_GPYRO(MESSAGE)
-ENDIF
 IF (GPG%FDSMODE) CALL GPYRO_FDSMODE('GPYRO_HGRXNS ')
 
 ! Make sure no unused reactions are defined:
-DO IRXN = NHGRXNS + 1, 20
+DO IRXN = NHGRXNS + 1, NHGRXNS+5
    IF (CREACTANT1(IRXN) .NE. 'null' .OR. CREACTANT2(IRXN) .NE. 'null') THEN
       MESSAGE='More than NHGRXNS have been defined. Increase NHGRXNS or delete unused homogeneous gaseous reactions.'
       CALL SHUTDOWN_GPYRO(MESSAGE)
    ENDIF
 ENDDO
+
+CALL SET_GPYRO_DEFAULTS_HGRXNS ! Set default parameter values
+REWIND(LUINPUT); READ(LUINPUT,NML=GPYRO_HGRXNS,IOSTAT=IOS)
 
 ! Copy data from namelist group GPYRO_HGRXNS:
 DO IRXN = 1, NHGRXNS
@@ -509,13 +486,16 @@ ENDDO
 CALL SET_GPYRO_DEFAULTS_GYIELDS ! Set default parameter values
 REWIND(LUINPUT); READ(LUINPUT,NML=GPYRO_GYIELDS,IOSTAT=IOS)
 IF (IOS .GT. 0) THEN
-   MESSAGE= 'Error: Problem with namelist group &GPYRO_GYIELDS.'
+   MESSAGE = 'Error: Problem reading namelist group &GPYRO_GYIELDS. ' // &
+   'Common issues include: misspelled parameter names, use of undefined keywords, ' // &
+   'missing namelist terminator ("/"), or incorrect formatting such as inserting spaces ' // &
+   'between a variable name and its index (e.g., use K0Z  (1) = 1 instead of K0Z(1) = 1).'
    CALL SHUTDOWN_GPYRO(MESSAGE)
 ENDIF
 IF (GPG%FDSMODE) CALL GPYRO_FDSMODE('GPYRO_GYIELDS')
             
-DO ISPEC=NGSPEC+1, 20
-   DO IRXN = NRXNS + 1, 20
+DO ISPEC=NGSPEC+1, NGSPEC+5
+   DO IRXN = NRXNS + 1, NRXNS +5
       IF (GYIELDS(ISPEC,IRXN) .GT. 1E-9 .OR. GYIELDS(ISPEC,IRXN) .LT. 0.) THEN
          MESSAGE= 'Error: in &GPYRO_GYIELDS, nonzero yield specified for invalid (ISPEC,IRXN) pair.'
          CALL SHUTDOWN_GPYRO(MESSAGE)
@@ -533,30 +513,36 @@ ENDDO
 CALL SET_GPYRO_DEFAULTS_HGYIELDS ! Set default parameter values
 REWIND(LUINPUT); READ(LUINPUT,NML=GPYRO_HGYIELDS,IOSTAT=IOS)
 IF (IOS .GT. 0) THEN
-   MESSAGE='Error: Problem with namelist group &GPYRO_HGYIELDS.'
+   MESSAGE = 'Error: Problem reading namelist group &GPYRO_HGYIELDS. ' // &
+   'Common issues include: misspelled parameter names, use of undefined keywords, ' // &
+   'missing namelist terminator ("/"), or incorrect formatting such as inserting spaces ' // &
+   'between a variable name and its index (e.g., use K0Z  (1) = 1 instead of K0Z(1) = 1).'
    CALL SHUTDOWN_GPYRO(MESSAGE)
 ENDIF
 
-DO ISPEC = NGSPEC+1, 20
-   DO IRXN = NHGRXNS + 1, 20
+DO ISPEC = NGSPEC+1, NGSPEC+5
+   DO IRXN = NHGRXNS + 1, NHGRXNS + 5
       IF (HGYIELDS(ISPEC,IRXN) .GT. 1E-9 .OR. HGYIELDS(ISPEC,IRXN) .LT. 0.) THEN
          MESSAGE= 'Error: in &GPYRO_HGYIELDS, nonzero yield specified for invalid (ISPEC,IRXN) pair.'
          CALL SHUTDOWN_GPYRO(MESSAGE)
       ENDIF
    ENDDO
 ENDDO
-            
+
 DO ISPEC = 1, NGSPEC
    DO IRXN = 1, NHGRXNS
       GPROP%HGYIELDS(ISPEC,IRXN) = HGYIELDS(ISPEC,IRXN)
    ENDDO
 ENDDO
 
-! Read in namelist group GPYRO_CASES - only need YJINF
+! Read in namelist group GPYRO_CASES
 CALL SET_GPYRO_DEFAULTS_CASES ! Set default parameter values
 REWIND(LUINPUT); READ(LUINPUT,NML=GPYRO_CASES,IOSTAT=IOS)
 IF (IOS .GT. 0) THEN
-   MESSAGE='Error: Problem with namelist group &GPYRO_CASES.'
+   MESSAGE = 'Error: Problem reading namelist group &GPYRO_CASES. ' // &
+   'Common issues include: misspelled parameter names, use of undefined keywords, ' // &
+   'missing namelist terminator ("/"), or incorrect formatting such as inserting spaces ' // &
+   'between a variable name and its index (e.g., use K0Z  (1) = 1 instead of K0Z(1) = 1).'
    CALL SHUTDOWN_GPYRO(MESSAGE)
 ENDIF
 IF (GPG%FDSMODE) CALL GPYRO_FDSMODE('GPYRO_CASES  ')
@@ -576,15 +562,27 @@ DO ICASE = 1, GPG%NCASES
    GPG%ZEROD  (ICASE)   = ZEROD(ICASE)
    GPG%BETA   (ICASE)   = BETA(ICASE)
 ENDDO
-         
+
+DO ICASE = NCASES+1, NCASES+5
+   IF (TSTOP(ICASE) .GT. 0) THEN
+      MESSAGE='Error : More than NCASE have been defined. Increase NCASE or delete unused one.'
+      CALL SHUTDOWN_GPYRO(MESSAGE)
+   ENDIF
+ENDDO
+
 ! Read in GPYRO_OUTPUT
 CALL SET_GPYRO_DEFAULTS_OUTPUT ! Set default parameter values
+! Make sure no unused species are defined:
 REWIND(LUINPUT); READ(LUINPUT,NML=GPYRO_OUTPUT,IOSTAT=IOS)
 IF (IOS .GT. 0) THEN 
-   MESSAGE='Error: Problem with namelist group &GPYRO_OUTPUT.'
+   MESSAGE = 'Error: Problem reading namelist group &GPYRO_OUTPUT. ' // &
+   'Common issues include: misspelled parameter names, use of undefined keywords, ' // &
+   'missing namelist terminator ("/"), or incorrect formatting such as inserting spaces ' // &
+   'between a variable name and its index (e.g., use K0Z  (1) = 1 instead of K0Z(1) = 1).'
    CALL SHUTDOWN_GPYRO(MESSAGE)
 ENDIF
 IF (GPG%FDSMODE) CALL GPYRO_FDSMODE('GPYRO_OUTPUT ')
+
 
 GPG%CASENAME                     = CASENAME
 GPG%N_POINT_QUANTITIES           = N_POINT_QUANTITIES
@@ -649,12 +647,37 @@ GPG%SMOKEVIEW_PLANE          (1:N_SMOKEVIEW_QUANTITIES) = SMOKEVIEW_PLANE       
 GPG%SMOKEVIEW_LOCATION       (1:N_SMOKEVIEW_QUANTITIES) = SMOKEVIEW_LOCATION       (1:N_SMOKEVIEW_QUANTITIES)
 GPG%SMOKEVIEW_IMESH          (1:N_SMOKEVIEW_QUANTITIES) = SMOKEVIEW_IMESH          (1:N_SMOKEVIEW_QUANTITIES)
 
+DO IDUMP = N_POINT_QUANTITIES + 1, N_POINT_QUANTITIES+5
+   IF (POINT_QUANTITY(IDUMP) .NE. 'null') THEN
+      MESSAGE='More than N_POINT_QUANTITIES dump point quantites have been defined. Increase N_POINT_QUANTITIES or delete unused one.'
+      CALL SHUTDOWN_GPYRO(MESSAGE)
+   ENDIF
+ENDDO
+
+DO IDUMP = N_PROFILE_QUANTITIES + 1, N_PROFILE_QUANTITIES+5
+   IF (PROFILE_QUANTITY(IDUMP) .NE. 'null') THEN
+      MESSAGE='More than N_PROFILE_QUANTITIES dump profile quantites have been defined. Increase N_PROFILE_QUANTITIES or delete unused one.'
+      CALL SHUTDOWN_GPYRO(MESSAGE)
+   ENDIF
+ENDDO
+
+DO IDUMP = N_SMOKEVIEW_QUANTITIES + 1, N_SMOKEVIEW_QUANTITIES+5
+   IF (SMOKEVIEW_QUANTITY(IDUMP) .NE. 'null') THEN
+      MESSAGE='More than N_SMOKEVIEW_QUANTITIES dump smokeview quantites have been defined. Increase N_SMOKEVIEW_QUANTITIES or delete unused one.'
+      CALL SHUTDOWN_GPYRO(MESSAGE)
+   ENDIF
+ENDDO
+
+
 
 ! Read in GPYRO_IC
 CALL SET_GPYRO_DEFAULTS_ICS ! Set default parameter values
 REWIND(LUINPUT); READ(LUINPUT,NML=GPYRO_IC,IOSTAT=IOS)
 IF (IOS .GT. 0) THEN 
-   MESSAGE='Error: Problem with namelist group &GPYRO_IC.'
+   MESSAGE = 'Error: Problem reading namelist group &GPYRO_IC. ' // &
+   'Common issues include: misspelled parameter names, use of undefined keywords, ' // &
+   'missing namelist terminator ("/"), or incorrect formatting such as inserting spaces ' // &
+   'between a variable name and its index (e.g., use K0Z  (1) = 1 instead of K0Z(1) = 1).'
    CALL SHUTDOWN_GPYRO(MESSAGE)
 ENDIF
 IF (GPG%FDSMODE) CALL GPYRO_FDSMODE('GPYRO_IC     ')
@@ -677,7 +700,10 @@ ENDDO
 CALL SET_GPYRO_DEFAULTS_ALLBC ! Set default parameter values
 REWIND(LUINPUT); READ(LUINPUT,NML=GPYRO_ALLBC,IOSTAT=IOS)
 IF (IOS .GT. 0) THEN 
-   MESSAGE='Error: Problem with namelist group &GPYRO_ALLBC.'
+   MESSAGE = 'Error: Problem reading namelist group &GPYRO_ALLBC. ' // &
+   'Common issues include: misspelled parameter names, use of undefined keywords, ' // &
+   'missing namelist terminator ("/"), or incorrect formatting such as inserting spaces ' // &
+   'between a variable name and its index (e.g., use K0Z  (1) = 1 instead of K0Z(1) = 1).'
    CALL SHUTDOWN_GPYRO(MESSAGE)
 ENDIF
 IF (GPG%FDSMODE) CALL GPYRO_FDSMODE('GPYRO_ALLBC  ')
@@ -691,11 +717,10 @@ DO ISURF = 1, GPG%NSURF_IDX
    GPG%ALLBC(ISURF)%T           = T           (ISURF)
    GPG%ALLBC(ISURF)%QE          = QE          (ISURF)
    GPG%ALLBC(ISURF)%HC          = HC          (ISURF)
-   GPG%ALLBC(ISURF)%NHC         = NHC         (ISURF)
    GPG%ALLBC(ISURF)%TINF        = TINF        (ISURF)
    GPG%ALLBC(ISURF)%RERADIATION = RERADIATION (ISURF)
    GPG%ALLBC(ISURF)%TFIXED      = TFIXED      (ISURF)
-   GPG%ALLBC(ISURF)%MDOTPP      = MDOTPP      (ISURF)
+   GPG%ALLBC(ISURF)%MDOTPP      = 1D-3*MDOTPP (ISURF) ! Read in g.m2.s-1 to kg.m2.s-1
    GPG%ALLBC(ISURF)%PRES        = PRES        (ISURF)
    GPG%ALLBC(ISURF)%QEG         = QEG         (ISURF)
    GPG%ALLBC(ISURF)%HCG         = HCG         (ISURF)
@@ -706,20 +731,27 @@ DO ISURF = 1, GPG%NSURF_IDX
    ALLOCATE(GPG%ALLBC(ISURF)%YJINF(1:GPROP%NGSPEC))
    GPG%ALLBC(ISURF)%YJINF(1:GPROP%NGSPEC) = YJINF(ISURF,1:GPROP%NGSPEC)
 
-   IF (GPG%SOLVE_GAS_YJ) THEN
-      IF (MDOTPP(ISURF) .NE. 0. .AND. HM(ISURF) .NE. 0.) THEN
-         MESSAGE='Only one of HM or MDOTPP can be nonzero.'
-         CALL SHUTDOWN_GPYRO(MESSAGE)
-      ENDIF
-   ENDIF
-
 ENDDO
+
+! Make sure no unused species are defined:
+DO ISURF = NSURF_IDX + 1, NSURF_IDX+5
+   IF (SURF_IDX(ISURF) .GE. 0) THEN
+      MESSAGE='Error: More than NSURF_IDX boundary condition block have been defined.' //&
+      ' Increase NSURF_IDX or delete unused boundary condition block.'
+      CALL SHUTDOWN_GPYRO(MESSAGE)
+   ENDIF
+ENDDO
+
+
 
 ! Read in GPYRO_GEOM
 CALL SET_GPYRO_DEFAULTS_GEOM ! Set default parameter values
 REWIND(LUINPUT); READ(LUINPUT,NML=GPYRO_GEOM,IOSTAT=IOS)
 IF (IOS .GT. 0) THEN
-   MESSAGE='Error: Problem with namelist group &GPYRO_GEOM.'
+   MESSAGE = 'Error: Problem reading namelist group &GPYRO_GEOM. ' // &
+   'Common issues include: misspelled parameter names, use of undefined keywords, ' // &
+   'missing namelist terminator ("/"), or incorrect formatting such as inserting spaces ' // &
+   'between a variable name and its index (e.g., use K0Z  (1) = 1 instead of K0Z(1) = 1).'
    CALL SHUTDOWN_GPYRO(MESSAGE)
 ENDIF
 IF (GPG%FDSMODE) CALL GPYRO_FDSMODE('GPYRO_GEOM   ')
@@ -752,7 +784,7 @@ GPG%DEFAULT_IC      (1:NMESH    ) = DEFAULT_IC      (1:NMESH    )
 
 
 ! Make sure no unused MESH are defined:
-DO ID_MESH = NMESH + 1, 5
+DO ID_MESH = NMESH + 1, NMESH+5
    IF (NCELLZ(ID_MESH) .GT. 1) THEN
       MESSAGE='More than NMESH mesh have been defined. Increase NMESH or delete unused mesh.'
       CALL SHUTDOWN_GPYRO(MESSAGE)
@@ -760,7 +792,7 @@ DO ID_MESH = NMESH + 1, 5
 ENDDO
 
 ! Make sure no unused OBST are defined:
-DO IOBST = NOBST + 1, 5
+DO IOBST = NOBST + 1, NOBST+5
    IF (NCELLZ(ID_MESH) .GT. 1) THEN
       MESSAGE='More than NOBST obstruction have been defined. Increase NOBST or delete unused onstruction.'
       CALL SHUTDOWN_GPYRO(MESSAGE)
@@ -887,7 +919,9 @@ CONVENTIONAL_RXN_ORDER         = .FALSE.
 KOZENY_CARMAN                  = .FALSE.
 USE_ANISOTROPIC_SOLID_ENTHALPY_SOLVER = .FALSE.
 GEOMETRY_IS_UPSIDE_DOWN        = .TRUE.
-         
+SOLVER_DEFORMATION_MODE        = 2
+
+
 TMPTOL                         = 1D-4
 HTOL                           = 1D-8
 YITOL                          = 1D-4
@@ -942,35 +976,22 @@ REDUCED_DTDUMP          = 1D0
 
 POINT_QUANTITY       (:) = 'null'
 POINT_QUANTITY_INDEX (:) = -1
-POINT_IMESH          (:) = 1
+POINT_IMESH          (:) = 0
 POINT_Z              (:) = 0D0
 POINT_X              (:) = 0D0
 POINT_Y              (:) = 0D0
 
-POINT_QUANTITY       (1) = 'TEMPERATURE'
-
-POINT_QUANTITY       (2) = 'TEMPERATURE'
-POINT_Z              (2) = 0.01D0
-
-POINT_QUANTITY       (3) = 'THICKNESS'
-POINT_QUANTITY_INDEX (3) = 0
-
-POINT_QUANTITY       (4) = 'MLR'
-POINT_QUANTITY_INDEX (4) = 0
-
 PROFILE_QUANTITY       (:) = 'null'
-PROFILE_IMESH          (:) = 1
+PROFILE_IMESH          (:) = 0
 PROFILE_QUANTITY_INDEX (:) = -1
 PROFILE_DIRECTION      (:) = 'z'
 PROFILE_COORD1         (:) = 0D0
 PROFILE_COORD2         (:) = 0D0
 PROFILE_ISKIP          (:) = 1
 
-PROFILE_QUANTITY       (1) = 'TEMPERATURE'
-
 SMOKEVIEW_QUANTITY       (:) = 'null'
 SMOKEVIEW_QUANTITY_INDEX (:) = -1
-SMOKEVIEW_IMESH          (:) = 1
+SMOKEVIEW_IMESH          (:) = 0
 
 DUMP_DETAILED_CONVERGENCE    = .FALSE. 
 
@@ -985,27 +1006,27 @@ SUBROUTINE SET_GPYRO_DEFAULTS_SPROPS !GPYRO_SPROPS namelist group
 
 NSSPEC           = 1
 NAME(:)          = 'null'
-K0Z(:)           = 0.2D0
+K0Z(:)           = -1
 NKZ(:)           = 0D0
-R0(:)            = 1000D0
+R0(:)            = -1
 NR(:)            = 0D0
-C0(:)            = 1400D0
+C0(:)            = -1
 NC(:)            = 0D0
-EMIS(:)          = 0.9D0
+EMIS(:)          = -1
 KAPPA(:)         = 9D9
-TMELT(:)         = 5D3
+TMELT(:)         = 9D9
 DHMELT(:)        = 0D0
 SIGMA2MELT(:)    = 1D0
 GAMMA(:)         = 0D0
-PERMZ(:)         = 1D-10
+PERMZ(:)         = -1
 RS0(:)           = -1
 PORE_DIAMETER(:) = 5D-4
-K0X(:)           = 0.2D0
-NKX(:)           = 0D0
-PERMX(:)         = 1D-10
-K0Y(:)           = 0.2D0
-NKY(:)           = 0D0
-PERMY(:)         = 1D-10
+K0X(:)           = -1
+NKX(:)           = -100000
+PERMX(:)         = -1
+K0Y(:)           = -1
+NKY(:)           = -100000
+PERMY(:)         = -1
 
 !******************************************************************************
 END SUBROUTINE SET_GPYRO_DEFAULTS_SPROPS
@@ -1060,13 +1081,13 @@ END SUBROUTINE SET_GPYRO_DEFAULTS_GEOM
 SUBROUTINE SET_GPYRO_DEFAULTS_RXNS ! GPYRO_RXNS namelist group
 !******************************************************************************
 
-NRXNS            = 1
+NRXNS            = 0
 CFROM(:)         = 'null'
 CTO(:)           = 'null'
 Z(:)             = 1D8
 E(:)             = 130D0
 DHS(:)           = 0D0
-DHV(:)           = 1.1D6
+DHV(:)           = 0D0
 CHI(:)           = 1D0
 ORDER(:)         = 1D0
 ORDERO2(:)       = 0D0
@@ -1086,15 +1107,13 @@ SUBROUTINE SET_GPYRO_DEFAULTS_GPROPS !GPYRO_GPROPS namelist group
 !******************************************************************************
 
 NGSPEC    = 1
-IBG       = 1
+IBG       = -1
 IO2       = -1
 CPG       = 1000D0
 NAME(:)   = 'null'
-M(:)      = 44.
-SIGMA(:)  = 5.061
-EPSOK(:)  = 254.
-C0(:)     = 1D3
-NC(:)     = 0D0
+M(:)      = -1
+SIGMA(:)  = -1
+EPSOK(:)  = -1
 
 !******************************************************************************
 END SUBROUTINE SET_GPYRO_DEFAULTS_GPROPS
@@ -1123,7 +1142,7 @@ SUBROUTINE SET_GPYRO_DEFAULTS_GYIELDS ! GPYRO_GYIELDS namelist group
 !******************************************************************************
 
 GYIELDS(:,:) = 0D0
-GYIELDS(1,1) = 1D0
+!GYIELDS(1,1) = 1D0
 
 !******************************************************************************
 END SUBROUTINE SET_GPYRO_DEFAULTS_GYIELDS
@@ -1143,11 +1162,11 @@ END SUBROUTINE SET_GPYRO_DEFAULTS_HGYIELDS
 SUBROUTINE SET_GPYRO_DEFAULTS_ALLBC
 !******************************************************************************
 
-SURF_IDX    (:)   = 1
+NSURF_IDX         = 0
+SURF_IDX    (:)   = -1
 T           (:)   = 0D0
 QE          (:)   = 0D0
 HC          (:)   = 10D0
-NHC         (:)   = 0D0
 TINF        (:)   = 300D0
 RERADIATION (:)   = .TRUE.
 TFIXED      (:)   = -1D0
@@ -1159,7 +1178,6 @@ TINFG       (:)   = 300D0
 TFIXEDG     (:)   = -1D0
 HM          (:)   = 0D0
 YJINF       (:,:) = 0D0
-YJINF       (1,1) = 1D0
 
 !******************************************************************************
 END SUBROUTINE SET_GPYRO_DEFAULTS_ALLBC
@@ -1170,7 +1188,8 @@ SUBROUTINE SET_GPYRO_DEFAULTS_CASES !GPYRO_CASES namelist group:
 !******************************************************************************
 
 NCASES   = 1
-TSTOP(:) = 600D0
+IMESH(:) = 1
+TSTOP(:) = -1
 ZEROD(:) = .FALSE.
 BETA(:)  = 10D0
 
@@ -1198,8 +1217,10 @@ CHARACTER(200) :: STR1
 LOGICAL :: LOPEN
 CHARACTER(300) :: MESSAGE
 LOGICAL,DIMENSION(1:100) :: ICISUSED=.FALSE.
+TYPE (GPYRO_MESH_TYPE), POINTER :: M
 
-G=>GPM(IMESH)
+G => GPM(IMESH)
+M => G%MESH
 
 ! Check whether .out file is open, and if not open it:	
 INQUIRE(UNIT=LUDOTOUT,OPENED=LOPEN)
@@ -1213,7 +1234,7 @@ IF (.NOT. LOPEN) THEN
    WRITE(LUDOTOUT,'(A,A)')      ' Revision         : ',TRIM(GITHASH_PP)
    WRITE(LUDOTOUT,'(A,A)')      ' Revision Date    : ',TRIM(GITDATE_PP)
    WRITE(LUDOTOUT,'(A,A)')      ' Compilation Date : ',TRIM(BUILDDATE_PP)
-   WRITE(LUDOTOUT,'(1X,A)') 'https://github.com/reaxfire/gpyro'
+   WRITE(LUDOTOUT,'(1X,A)')  'https://gitlab.imft.fr/gpyro/gpyro'
    WRITE(LUDOTOUT,*)
 
    WRITE(TWO,'(I2.2)') ICASE; WRITE(LUDOTOUT,90) "Case #: " // TWO
@@ -1376,7 +1397,7 @@ IF (.NOT. LOPEN) THEN
       WRITE(STR1,'(F9.4)') SPROP%NC(ISPEC)
       WRITE (LUDOTOUT,90) 'NC            (' // TWO // '): ' // TRIM(STR1) // ' (-)'
       
-      IF (G%NCELLZ .GT. 1) THEN
+      IF (M%NCELLZ .GT. 1) THEN
          WRITE(STR1,'(F11.4)') SPROP%K0Z(ISPEC)
          WRITE (LUDOTOUT,90) 'K0Z           (' // TWO // '): ' // TRIM(STR1) // ' W/m-K'
       
@@ -1384,7 +1405,7 @@ IF (.NOT. LOPEN) THEN
          WRITE (LUDOTOUT,90) 'NKZ           (' // TWO // '): ' // TRIM(STR1) // ' (-)'
       ENDIF
 
-      IF (G%NCELLX .GT. 1) THEN
+      IF (M%NCELLX .GT. 1) THEN
          WRITE(STR1,'(F9.4)') SPROP%K0X(ISPEC)
          WRITE (LUDOTOUT,90) 'K0X           (' // TWO // '): ' // TRIM(STR1) // ' W/m-K'
 
@@ -1392,7 +1413,7 @@ IF (.NOT. LOPEN) THEN
          WRITE (LUDOTOUT,90) 'NKX           (' // TWO // '): ' // TRIM(STR1) // ' (-)'
       ENDIF
 
-      IF (G%NCELLY .GT. 1) THEN
+      IF (M%NCELLY .GT. 1) THEN
          WRITE(STR1,'(F9.4)') SPROP%K0Y(ISPEC)
          WRITE (LUDOTOUT,90) 'K0Y           (' // TWO // '): ' // TRIM(STR1) // ' W/m-K'
 
@@ -1539,7 +1560,7 @@ IF (.NOT. LOPEN) THEN
 
    DO ISPEC = 1, GPROP%NGSPEC
       DO IRXN = 1, SPROP%NRXN
-         IF (GPROP%YIELDS(ISPEC,IRXN) .NE. 0D0) THEN
+         IF (ABS(GPROP%YIELDS(ISPEC,IRXN)) .GT. EPSILON_FB) THEN
             WRITE(LUDOTOUT,91) 'Yield for species ', ISPEC, ' from reaction ', IRXN, ': ', GPROP%YIELDS(ISPEC,IRXN)
          ENDIF
       ENDDO
@@ -1590,7 +1611,7 @@ IF (.NOT. LOPEN) THEN
 
       DO ISPEC = 1, GPROP%NGSPEC
          DO IRXN = 1, GPROP%NHGRXN
-            IF (GPROP%HGYIELDS(ISPEC,IRXN) .NE. 0D0) THEN
+            IF (ABS(GPROP%HGYIELDS(ISPEC,IRXN)) .GT. EPSILON_FB) THEN
                WRITE(LUDOTOUT,91) 'Yield for species ', ISPEC, ' from reaction ', IRXN, ': ', GPROP%HGYIELDS(ISPEC,IRXN)
             ENDIF
          ENDDO
@@ -1605,28 +1626,28 @@ IF (.NOT. LOPEN) THEN
    WRITE(LUDOTOUT,90) '*** Geometry *** '
    WRITE(LUDOTOUT,*)
    
-   IF (G%NCELLZ .EQ. 1) THEN 
+   IF (M%NCELLZ .EQ. 1) THEN 
       WRITE(LUDOTOUT,90) 'Zero-dimensional simulation.'
       WRITE(LUDOTOUT,80) 'Heating rate: ', GPG%BETA(ICASE), " K/min"
-   ELSE ! G%NCELLZ .GT. 1
-      IF (G%NCELLX .EQ. 1 .AND. G%NCELLY .EQ. 1) WRITE(LUDOTOUT,90) 'One-dimensional simulation.'
-      IF (G%NCELLX .GT. 1 .AND. G%NCELLY .EQ. 1) WRITE(LUDOTOUT,90) 'Two-dimensional simulation.'
-      IF (G%NCELLX .GT. 1 .AND. G%NCELLY .GT. 1) WRITE(LUDOTOUT,90) 'Three-dimensional simulation.'
+   ELSE ! M%NCELLZ .GT. 1
+      IF (M%NCELLX .EQ. 1 .AND. M%NCELLY .EQ. 1) WRITE(LUDOTOUT,90) 'One-dimensional simulation.'
+      IF (M%NCELLX .GT. 1 .AND. M%NCELLY .EQ. 1) WRITE(LUDOTOUT,90) 'Two-dimensional simulation.'
+      IF (M%NCELLX .GT. 1 .AND. M%NCELLY .GT. 1) WRITE(LUDOTOUT,90) 'Three-dimensional simulation.'
    ENDIF
    
-   IF (G%NCELLZ .GT. 1) THEN  
-      WRITE(LUDOTOUT,82) "z-dimension extends from z = 0.0000 m to z = ", G%Z(G%NCELLZ), " m."
-      WRITE(LUDOTOUT,81) "Number of cells in z-direction: ", G%NCELLZ
+   IF (M%NCELLZ .GT. 1) THEN  
+      WRITE(LUDOTOUT,82) "z-dimension extends from z = 0.0000 m to z = ", M%Z(M%NCELLZ,1,1), " m."
+      WRITE(LUDOTOUT,81) "Number of cells in z-direction: ", M%NCELLZ
    ENDIF
 
-   IF (G%NCELLX .GT. 1) THEN  
-      WRITE(LUDOTOUT,82) "x-dimension extends from x = 0.0000 m to x = ", G%X(G%NCELLX), " m."
-      WRITE(LUDOTOUT,81) "Number of cells in x-direction: ", G%NCELLX
+   IF (M%NCELLX .GT. 1) THEN  
+      WRITE(LUDOTOUT,82) "x-dimension extends from x = 0.0000 m to x = ", M%X(M%NCELLX), " m."
+      WRITE(LUDOTOUT,81) "Number of cells in x-direction: ", M%NCELLX
    ENDIF
 
-   IF (G%NCELLY .GT. 1) THEN  
-      WRITE(LUDOTOUT,82) "y-dimension extends from y = 0.0000 m to y = ", G%Y(G%NCELLY), " m."
-      WRITE(LUDOTOUT,81) "Number of cells in y-direction: ", G%NCELLY
+   IF (M%NCELLY .GT. 1) THEN  
+      WRITE(LUDOTOUT,82) "y-dimension extends from y = 0.0000 m to y = ", M%Y(M%NCELLY), " m."
+      WRITE(LUDOTOUT,81) "Number of cells in y-direction: ", M%NCELLY
    ENDIF
             
    WRITE(LUDOTOUT,*)
@@ -1638,7 +1659,7 @@ IF (.NOT. LOPEN) THEN
    WRITE(LUDOTOUT,90) 'Default initial condition: ' // TWO
    WRITE(LUDOTOUT,*)
 
-   IF (G%NCELLZ .GT. 1) THEN
+   IF (M%NCELLZ .GT. 1) THEN
       WRITE(LUDOTOUT,90) 'Default boundary condtions (can be overridden by obstructions):'
       WRITE(LUDOTOUT,*)
 
@@ -1649,7 +1670,7 @@ IF (.NOT. LOPEN) THEN
       WRITE(LUDOTOUT,90) 'DEFAULT_SURF_IDX(6) (+z): ' // TWO
    ENDIF
 
-   IF (G%NCELLX .GT. 1) THEN
+   IF (M%NCELLX .GT. 1) THEN
       WRITE(TWO,'(I2.2)') GPG%DEFAULT_SURF_IDX(IMESH,1)
       WRITE(LUDOTOUT,90) 'DEFAULT_SURF_IDX(1) (-x): ' // TWO
 
@@ -1657,7 +1678,7 @@ IF (.NOT. LOPEN) THEN
       WRITE(LUDOTOUT,90) 'DEFAULT_SURF_IDX(2) (+x): ' // TWO
    ENDIF
 
-   IF (G%NCELLY .GT. 1) THEN
+   IF (M%NCELLY .GT. 1) THEN
       WRITE(TWO,'(I2.2)') GPG%DEFAULT_SURF_IDX(IMESH,3)
       WRITE(LUDOTOUT,90) 'DEFAULT_SURF_IDX(3) (-y): ' // TWO
 
@@ -1678,28 +1699,28 @@ IF (.NOT. LOPEN) THEN
       WRITE(TWO,'(I2.2)') GPG%GEOM(IOBST)%ICNUM
       WRITE(LUDOTOUT,90) 'Initial condition: ' // TWO
 
-      IF (G%NCELLZ .GT. 1) THEN
+      IF (M%NCELLZ .GT. 1) THEN
          WRITE(STR1,'(F6.3)') GPG%GEOM(IOBST)%Z1
          WRITE(LUDOTOUT,90) 'z1: ' // TRIM(STR1)
          WRITE(STR1,'(F6.3)') GPG%GEOM(IOBST)%Z2
          WRITE(LUDOTOUT,90) 'z2: ' // TRIM(STR1)
       ENDIF
 
-      IF (G%NCELLX .GT. 1) THEN
+      IF (M%NCELLX .GT. 1) THEN
          WRITE(STR1,'(F6.3)') GPG%GEOM(IOBST)%X1
          WRITE(LUDOTOUT,90) 'x1: ' // TRIM(STR1)
          WRITE(STR1,'(F6.3)') GPG%GEOM(IOBST)%X2
          WRITE(LUDOTOUT,90) 'x2: ' // TRIM(STR1)
       ENDIF
 
-      IF (G%NCELLY .GT. 1) THEN
+      IF (M%NCELLY .GT. 1) THEN
          WRITE(STR1,'(F6.3)') GPG%GEOM(IOBST)%Y1
          WRITE(LUDOTOUT,90) 'y1: ' // TRIM(STR1)
          WRITE(STR1,'(F6.3)') GPG%GEOM(IOBST)%Y2
          WRITE(LUDOTOUT,90) 'y2: ' // TRIM(STR1)
       ENDIF
 
-      IF (G%NCELLZ .GT. 1) THEN
+      IF (M%NCELLZ .GT. 1) THEN
          WRITE(TWO,'(I2.2)') GPG%GEOM(IOBST)%SURF_IDX(5)
          WRITE(LUDOTOUT,90) 'SURF_IDX(5) (-z): ' // TWO
 
@@ -1707,7 +1728,7 @@ IF (.NOT. LOPEN) THEN
          WRITE(LUDOTOUT,90) 'SURF_IDX(6) (+z): ' // TWO
       ENDIF
 
-      IF (G%NCELLX .GT. 1) THEN
+      IF (M%NCELLX .GT. 1) THEN
          WRITE(TWO,'(I2.2)') GPG%GEOM(IOBST)%SURF_IDX(1)
          WRITE(LUDOTOUT,90) 'SURF_IDX(1) (-x): ' // TWO
 
@@ -1715,7 +1736,7 @@ IF (.NOT. LOPEN) THEN
          WRITE(LUDOTOUT,90) 'SURF_IDX(2) (+x): ' // TWO
       ENDIF
 
-      IF (G%NCELLY .GT. 1) THEN
+      IF (M%NCELLY .GT. 1) THEN
          WRITE(TWO,'(I2.2)') GPG%GEOM(IOBST)%SURF_IDX(3)
          WRITE(LUDOTOUT,90) 'SURF_IDX(3) (-y): ' // TWO
 
@@ -1793,9 +1814,6 @@ IF (.NOT. LOPEN) THEN
          WRITE(STR1,'(F6.1)') GPG%ALLBC(ISURF)%HC
          WRITE(LUDOTOUT,90) 'HC: ' // TRIM(STR1)
 
-        !WRITE(STR1,'(F5.2)') GPG%ALLBC(ISURF)%NHC
-        ! WRITE(LUDOTOUT,90) 'NHC: ' // TRIM(STR1) // ' (not used)'
-
          WRITE(STR1,'(F7.2)') GPG%ALLBC(ISURF)%TINF
          WRITE(LUDOTOUT,90) 'TINF: ' // TRIM(STR1)
 
@@ -1859,7 +1877,7 @@ ELSE
 ENDIF
 
 ! Check for NaN
-IF (GPG%MAXTMP .NE. GPG%MAXTMP) THEN
+IF (.NOT. IEEE_IS_FINITE(GPG%MAXTMP)) THEN
    MESSAGE='Shutting down because NaN occurred.'
    CALL SHUTDOWN_GPYRO(MESSAGE)
 ENDIF
@@ -1887,17 +1905,40 @@ USE GPYRO_FUNCS
 INTEGER, INTENT(IN) :: IMESH,ICASE
 REAL(EB), INTENT(IN) :: TI
 REAL(EB) :: TSTART,TEND, TMID1,TMID2
-LOGICAL :: TZERO
+LOGICAL :: DUMP_POINT, DUMP_PROFILE, DUMP_SMOKEVIEW
+TYPE (GPYRO_MESH_TYPE), POINTER :: M
+
+G => GPM(IMESH)
+M => G%MESH
 
 CALL GET_CPU_TIME(TSTART) !Used to calculate time required for dumping
 
-      
-TZERO = .FALSE.; IF (G%NTIMESTEPS .EQ. 0) TZERO = .TRUE.
+DUMP_POINT =.FALSE.
+DUMP_PROFILE = .FALSE. 
+DUMP_SMOKEVIEW = .FALSE.
 
+IF (G%NTIMESTEPS .EQ. 0) THEN
+   !Initial step
+   DUMP_POINT =.TRUE.
+   DUMP_PROFILE = .TRUE. 
+   DUMP_SMOKEVIEW = .TRUE.
+ENDIF
+                                                               ! Numerical precision
+IF (TI - GPG%TDUMPLAST_POINT    (IMESH) .GE. GPG%DTDUMP_POINT     - EPSILON_FB) DUMP_POINT     =.TRUE.
+IF (TI - GPG%TDUMPLAST_PROFILE  (IMESH) .GE. GPG%DTDUMP_PROFILE   - EPSILON_FB) DUMP_PROFILE   =.TRUE.
+IF (TI - GPG%TDUMPLAST_SMOKEVIEW(IMESH) .GE. GPG%DTDUMP_SMOKEVIEW - EPSILON_FB) DUMP_SMOKEVIEW =.TRUE.
+
+IF (GPG%MAXTMP .GT. GPG%TMP_REDUCED_DTDUMP) THEN
+   IF (TI-GPG%TDUMPLAST_POINT    (IMESH) .GE. GPG%REDUCED_DTDUMP - EPSILON_FB) DUMP_POINT     =.TRUE.
+   IF (TI-GPG%TDUMPLAST_PROFILE  (IMESH) .GE. GPG%REDUCED_DTDUMP - EPSILON_FB) DUMP_PROFILE   =.TRUE.
+   IF (TI-GPG%TDUMPLAST_SMOKEVIEW(IMESH) .GE. GPG%REDUCED_DTDUMP - EPSILON_FB) DUMP_SMOKEVIEW =.TRUE.
+ENDIF
+
+IF (M%NCELLX .LE. 1 .AND. GPG%N_SMOKEVIEW_QUANTITIES .LE. 0) DUMP_SMOKEVIEW =.FALSE.
 
 ! Dump point data. 
 CALL GET_CPU_TIME(TMID1)
-IF (TI - GPG%TDUMPLAST_POINT(IMESH) .GE. GPG%DTDUMP_POINT .OR. TZERO .OR. GPG%MAXTMP .GT. GPG%TMP_REDUCED_DTDUMP .AND. TI-GPG%TDUMPLAST_POINT(IMESH) .GE. GPG%REDUCED_DTDUMP ) THEN 
+IF (DUMP_POINT) THEN 
    CALL DUMP_POINT_QUANTITIES(ICASE,IMESH)
    GPG%TDUMPLAST_POINT(IMESH) = TI
 ENDIF
@@ -1905,16 +1946,16 @@ CALL GET_CPU_TIME(TMID2) ; GPG%TUSED(41)= GPG%TUSED(41) +TMID2-TMID1
 
 
 ! Dump a Smokeview output file if requested by the user:
-IF (TI - GPG%TDUMPLAST_SMOKEVIEW(IMESH) .GE. GPG%DTDUMP_SMOKEVIEW .OR. TZERO .OR. GPG%MAXTMP .GT. GPG%TMP_REDUCED_DTDUMP .AND. TI-GPG%TDUMPLAST_SMOKEVIEW(IMESH) .GE. GPG%REDUCED_DTDUMP) THEN 
-   IF (G%NCELLX .GT. 1 .AND. GPG%N_SMOKEVIEW_QUANTITIES .GT. 0) CALL DUMP_GPYRO_SMOKEVIEW(IMESH,TI)
+IF (DUMP_SMOKEVIEW) THEN 
+   CALL DUMP_GPYRO_SMOKEVIEW(IMESH,TI)
    GPG%TDUMPLAST_SMOKEVIEW(IMESH) = TI
 ENDIF
 CALL GET_CPU_TIME(TMID1) ; GPG%TUSED(42)= GPG%TUSED(42) +TMID1-TMID2
 
 
 ! Dump files containing profile data, if requested by user:
-IF (TI - GPG%TDUMPLAST_PROFILE(IMESH) .GE. GPG%DTDUMP_PROFILE .OR. TZERO .OR. GPG%MAXTMP .GT. GPG%TMP_REDUCED_DTDUMP .AND. TI-GPG%TDUMPLAST_PROFILE(IMESH) .GE. GPG%REDUCED_DTDUMP) THEN 
-   CALL DUMP_GPYRO_PROFILES(IMESH,G%NCELLZ,G%NCELLX,G%NCELLY)
+IF (DUMP_PROFILE) THEN 
+   CALL DUMP_GPYRO_PROFILES(IMESH,M%NCELLZ,M%NCELLX,M%NCELLY)
    GPG%TDUMPLAST_PROFILE(IMESH) = TI
 ENDIF
 CALL GET_CPU_TIME(TMID2) ; GPG%TUSED(43)= GPG%TUSED(43) +TMID2-TMID1
@@ -1929,7 +1970,7 @@ SUBROUTINE DUMP_POINT_QUANTITIES(ICASE,IMESH)
 !******************************************************************************
 
 INTEGER, INTENT(IN) :: ICASE,IMESH
-INTEGER :: I,IZ,IX,IY,ISPEC,IRXN
+INTEGER :: I,IZ,IX,IY,ISPEC,IRXN,J
 REAL(EB), TARGET :: TEMPVAR
 LOGICAL :: LOPEN
 CHARACTER(300) :: FN
@@ -1944,8 +1985,8 @@ CHARACTER(20) :: TEMPSTR
 
 REAL(EB), POINTER :: PTR
 
-G=>GPM(IMESH)
-GPBCP(1:,1:,1:,-3:)=>G%GPYRO_BOUNDARY_CONDITION(1:,1:,1:,-3:)
+G => GPM(IMESH)
+M => G%MESH
    
 ! Check whether summary file is open, and if not open it:	
 INQUIRE(UNIT=LUPOINT,OPENED=LOPEN)
@@ -2010,7 +2051,15 @@ DO I = 1, GPG%N_POINT_QUANTITIES
          PTR => TEMPVAR 
       CASE('REACTION_RATE_K') !Condensed/heterogeneous reaction rate
          IRXN = GPG%POINT_QUANTITY_INDEX(I)
-         PTR => G%OMEGASDAK(IRXN,IZ,IX,IY)
+         IF (IRXN .EQ. 0) THEN
+            TEMPVAR = 0D0
+            DO J =1, SPROP%NRXN
+               TEMPVAR = TEMPVAR + G%OMEGASDAK(J,IZ,IX,IY)
+            ENDDO
+            PTR => TEMPVAR
+         ELSE
+            PTR => G%OMEGASDAK(IRXN,IZ,IX,IY)
+         ENDIF
 
       CASE ('YJ')
          ISPEC = GPG%POINT_QUANTITY_INDEX(I)
@@ -2021,6 +2070,9 @@ DO I = 1, GPG%N_POINT_QUANTITIES
          TEMPVAR = G%RGN(IZ,IX,IY) * G%POROSSN(IZ,IX,IY) * G%YJGN(ISPEC,IZ,IX,IY)
          PTR => TEMPVAR
 
+      CASE ('GAS_DENSITY') !Gas-phase species concentration
+         TEMPVAR = G%RGN(IZ,IX,IY)
+         PTR => TEMPVAR
       CASE ('YJSUM') !Sum of gaseous mass fractions
          TEMPVAR = 0D0
          DO ISPEC = 1, GPROP%NGSPEC
@@ -2057,51 +2109,12 @@ DO I = 1, GPG%N_POINT_QUANTITIES
          TEMPVAR = G%PN(IZ,IX,IY) - GPG%P0
          PTR => TEMPVAR
 
-      !CASE ('MASS_FLUX_TOTAL_Z')
-      !   IF (GPG%SOLVE_PRESSURE) THEN
-      !      TEMPVAR = G%MDOTPPDARCYT(IZ,IX,IY) * 1D3
-      !   ELSE
-      !      TEMPVAR = G%MDOTPPZ(0,IZ,IX,IY) * 1D3                  
-      !   ENDIF
-      !   PTR => TEMPVAR         
-
-      ! TEST TEST TEST 
       CASE ('MASS_FLUX_TOTAL_Z')
-         ISPEC = GPG%POINT_QUANTITY_INDEX(I)
          IF (GPG%SOLVE_PRESSURE) THEN
-            IF (ISPEC .EQ. 0) THEN
-               TEMPVAR = G%RWORK45(IZ,IX,IY) ! mdotppt
-            ELSE !ISPEC .EQ. 0
-               IF (G%NEEDSBCT(IZ,IX,IY)) THEN
-                  IF (GPBCP(IZ,IX,IY,3)%PRES .LT. 0D0) THEN ! Fixed mass flux boundary condition
-                     IF (GPBCP(IZ,IX,IY,3)%MFLUX .GE. 0.) THEN ! Mass flux in
-                        TEMPVAR = G%RWORK45(IZ,IX,IY) * G%YJGN(ISPEC,IZ,IX,IY) - G%RWORK40(IZ,IX,IY) * (GPBCP(IZ,IX,IY,3)%YJINF(ISPEC) - G%YJGN(ISPEC,IZ,IX,IY) )
-                     ELSE ! Mass flux out - same?
-                        TEMPVAR = G%RWORK45(IZ,IX,IY) * G%YJGN(ISPEC,IZ,IX,IY) - G%RWORK40(IZ,IX,IY) * (GPBCP(IZ,IX,IY,3)%YJINF(ISPEC) - G%YJGN(ISPEC,IZ,IX,IY) )
-                     ENDIF
-                  ELSE ! Convection and diffusion
-                     TEMPVAR = G%RWORK45(IZ,IX,IY) * G%YJGN(ISPEC,IZ,IX,IY) - G%RWORK40(IZ,IX,IY) * (G%YJGN(ISPEC,IZ,IX,IY) - GPBCP(IZ,IX,IY,3)%YJINF(ISPEC) )
-                  ENDIF
-
-               ELSE IF (G%NEEDSBCB(IZ,IX,IY)) THEN
-                  IF (GPBCP(IZ,IX,IY,-3)%PRES .LT. 0D0) THEN ! Fixed mass flux boundary condition
-                     IF (GPBCP(IZ,IX,IY,-3)%MFLUX .GE. 0.) THEN ! Mass flux in 
-                        TEMPVAR = G%RWORK46(IZ,IX,IY) * G%YJGN(ISPEC,IZ,IX,IY) - G%RWORK41(IZ,IX,IY) * (GPBCP(IZ,IX,IY,-3)%YJINF(ISPEC) - G%YJGN(ISPEC,IZ,IX,IY) )
-                     ELSE ! Mass flux out - same? 
-                        TEMPVAR = G%RWORK46(IZ,IX,IY) * G%YJGN(ISPEC,IZ,IX,IY) - G%RWORK41(IZ,IX,IY) * (GPBCP(IZ,IX,IY,-3)%YJINF(ISPEC) - G%YJGN(ISPEC,IZ,IX,IY) )
-                     ENDIF
-                  ELSE ! Convection and diffusion
-                     TEMPVAR = G%RWORK46(IZ,IX,IY) * G%YJGN(ISPEC,IZ,IX,IY) + G%RWORK41(IZ,IX,IY) * (G%YJGN(ISPEC,IZ,IX,IY) - GPBCP(IZ,IX,IY,-3)%YJINF(ISPEC) )
-                  ENDIF
-
-               ELSE ! Interior cell without boundary condition
-                     TEMPVAR = G%RWORK45(IZ,IX,IY) * G%YJGN(ISPEC,IZ,IX,IY) - G%RWORK43(IZ,IX,IY) * (G%YJGN(ISPEC,IZ,IX,IY) - G%YJGN(ISPEC,IZ-1,IX,IY) )
-               ENDIF
-            ENDIF !ISPEC .EQ. 0
-         ELSE !SOLVE_PRESSURE
-            TEMPVAR = G%MDOTPPZ(0,IZ,IX,IY)
-         ENDIF !SOLVE_PRESSURE
-         TEMPVAR = 1000. * TEMPVAR !Convert to g/m2-s
+            TEMPVAR = G%MDOTPPDARCYT(IZ,IX,IY) * 1D3
+         ELSE
+            TEMPVAR = G%MDOTPPZ(0,IZ,IX,IY) * 1D3
+         ENDIF
          PTR => TEMPVAR
 
       CASE ('MASS_FLUX_TOTAL_X')
@@ -2152,23 +2165,26 @@ DO I = 1, GPG%N_POINT_QUANTITIES
          PTR => G%PERMY(IZ,IX,IY)
 
       CASE ('POROSITY')
-         PTR => G%POROSSN(IZ,IX,IY)         
+         PTR => G%POROSSN(IZ,IX,IY)
 
       CASE ('D12')
-         PTR => G%D12(IZ,IX,IY)         
+         PTR => G%D12(IZ,IX,IY)
 
       CASE ('SHGP')
-         PTR => G%SHGP(IZ,IX,IY)         
+         PTR => G%SHGP(IZ,IX,IY)
 
       CASE ('SHGM')
-         PTR => G%SHGM(IZ,IX,IY)         
+         PTR => G%SHGM(IZ,IX,IY)
 
       CASE ('QSG')
-         PTR => G%QSG(IZ,IX,IY)         
+         PTR => G%QSG(IZ,IX,IY)
+
+      CASE ('QSC')
+         PTR => G%QSC(IZ,IX,IY)
 
       CASE ('RYIDZSIGMA')
          ISPEC = GPG%POINT_QUANTITY_INDEX(I)
-         PTR => G%RYIDZSIGMA(ISPEC,IZ,IX,IY)
+         PTR => G%TIME_INTEGRATED_MASS_PRODUCED(ISPEC,IZ,IX,IY)
 
       CASE ('UNREACTEDNESS')
          ISPEC = GPG%POINT_QUANTITY_INDEX(I)
@@ -2178,16 +2194,16 @@ DO I = 1, GPG%N_POINT_QUANTITIES
          PTR => G%GOMEGA(3,0,IZ,IX,IY)
 
       CASE ('RE')
-         PTR => G%RE(IZ,IX,IY)         
+         PTR => G%RE(IZ,IX,IY)
 
       CASE ('NU')
-         PTR => G%NU(IZ,IX,IY)         
+         PTR => G%NU(IZ,IX,IY)
 
       CASE ('HCV')
          PTR => G%HCV(IZ,IX,IY)
 
       CASE ('M/M0')
-         TEMPVAR = G%RDLTZN(IZ,IX,IY) / G%RYIDZ0(0,IZ,IX,IY)
+         TEMPVAR = G%MASS_N(IZ,IX,IY) / G%INITIAL_MASS(0,IZ,IX,IY)
          PTR => TEMPVAR
 
       CASE ('MLR')
@@ -2210,7 +2226,7 @@ DO I = 1, GPG%N_POINT_QUANTITIES
 
       CASE ('MPPI')
          ISPEC = GPG%POINT_QUANTITY_INDEX(I)
-         TEMPVAR = SUM(G%RYIDZP(ISPEC,1:G%NCELLZ,IX,IY))
+         TEMPVAR = SUM(G%MASS_I(ISPEC,1:M%NCELLZ,IX,IY))
          PTR => TEMPVAR
 
       CASE ('THICKNESS')
@@ -2226,20 +2242,20 @@ DO I = 1, GPG%N_POINT_QUANTITIES
          PTR => TEMPVAR
 
       CASE ('CML')
-         TEMPVAR=G%INITIAL_MASS - TOTAL_MASS(0) ; PTR => TEMPVAR
+         TEMPVAR=G%TOTAL_INITIAL_MASS - TOTAL_MASS(0) ; PTR => TEMPVAR
 
       CASE ('TOTAL_MASS')
          ISPEC = GPG%POINT_QUANTITY_INDEX(I)
          TEMPVAR=TOTAL_MASS(ISPEC) ; PTR => TEMPVAR
 
       CASE ('DLTZN')
-         PTR => G%DLTZ(IZ,IX,IY)
+         PTR => M%DZ(IZ,IX,IY)
 
       CASE ('DLTXN')
-         PTR => G%DLTX(IZ,IX,IY)
+         PTR => M%DX(IZ,IX,IY)
 
       CASE ('DLTYN')
-         PTR => G%DLTY(IZ,IX,IY)
+         PTR => M%DY(IZ,IX,IY)
          
       CASE DEFAULT
          WRITE(*,*) 'Error, point quantity', GPG%POINT_QUANTITY(I), ' not defined.'
@@ -2289,7 +2305,7 @@ INQUIRE(UNIT=LUPROF+GPG%FIRST_PROF_IN_MESH(IMESH),OPENED=LOPEN)
 IF (.NOT. LOPEN) THEN
    !$OMP PARALLEL DO SCHEDULE(STATIC)  DEFAULT(PRIVATE)&
    !$OMP PRIVATE(LINE, BUFFER, STR_SIZE, K)&
-   !$OMP SHARED(GPG, G, SPROP, IMESH, TI)
+   !$OMP SHARED(GPG, G, M, SPROP, IMESH, TI)
    DO I = 1, GPG%N_PROFILE_QUANTITIES
 
       IF (GPG%PROFILE_IMESH(I) .NE. 0 .AND. GPG%PROFILE_IMESH(I) .NE. IMESH) CYCLE
@@ -2315,35 +2331,35 @@ IF (.NOT. LOPEN) THEN
 
       IF (GPG%PROFILE_DIRECTION(I) .EQ. 'z' .OR. GPG%PROFILE_DIRECTION(I) .EQ. 'Z') THEN !f(z)
 
-         STR_SIZE = CEILING(REAL(G%NCELLZ) / REAL(GPG%PROFILE_ISKIP(I))) + 1
+         STR_SIZE = CEILING(REAL(M%NCELLZ) / REAL(GPG%PROFILE_ISKIP(I))) + 1
          BUFFER => G%WORK_DUMP(I)%BUFFER
 
          !For havingthe thesame size for the first line corresponding to the position and the others lines
          BUFFER(1) = 0 
          K=1     
-         DO IZ = 1, G%NCELLZ, GPG%PROFILE_ISKIP(I)
+         DO IZ = 1, M%NCELLZ, GPG%PROFILE_ISKIP(I)
             K=K+1
-            BUFFER(K) = G%Z(IZ)
+            BUFFER(K) = M%Z(IZ,1,1)
          ENDDO
 
       ELSE IF (GPG%PROFILE_DIRECTION(I) .EQ. 'x' .OR. GPG%PROFILE_DIRECTION(I) .EQ. 'X') THEN !f(x)
-         STR_SIZE = CEILING(REAL(G%NCELLX) / REAL(GPG%PROFILE_ISKIP(I))) + 1
+         STR_SIZE = CEILING(REAL(M%NCELLX) / REAL(GPG%PROFILE_ISKIP(I))) + 1
          BUFFER => G%WORK_DUMP(I)%BUFFER
          K=1 
-         BUFFER(1) = 0     
-         DO IX = 1, G%NCELLX, GPG%PROFILE_ISKIP(I)
+         BUFFER(1) = 0
+         DO IX = 1, M%NCELLX, GPG%PROFILE_ISKIP(I)
             K=K+1
-            BUFFER(K) = G%X(IX)
+            BUFFER(K) = M%X(IX)
          ENDDO
 
       ELSE IF (GPG%PROFILE_DIRECTION(I) .EQ. 'y' .OR. GPG%PROFILE_DIRECTION(I) .EQ. 'Y') THEN !f(y)
-         STR_SIZE = CEILING(REAL(G%NCELLY) / REAL(GPG%PROFILE_ISKIP(I))) + 1
+         STR_SIZE = CEILING(REAL(M%NCELLY) / REAL(GPG%PROFILE_ISKIP(I))) + 1
          BUFFER => G%WORK_DUMP(I)%BUFFER
          K=1     
          BUFFER(1) = 0 
-         DO IY = 1, G%NCELLX, GPG%PROFILE_ISKIP(I)
+         DO IY = 1, M%NCELLX, GPG%PROFILE_ISKIP(I)
             K=K+1
-            BUFFER(K) = G%Y(IY)
+            BUFFER(K) = M%Y(IY)
          ENDDO
       ENDIF
 
@@ -2359,7 +2375,7 @@ ENDIF
 
 !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(PRIVATE)&
 !$OMP PRIVATE(LINE, BUFFER, STR_SIZE, K)&
-!$OMP SHARED(GPG, G, SPROP, GPROP, IMESH, TI)
+!$OMP SHARED(GPG, G, M, SPROP, GPROP, IMESH, TI)
 DO I = 1, GPG%N_PROFILE_QUANTITIES
 
    IF (GPG%PROFILE_IMESH(I) .NE. 0 .AND. GPG%PROFILE_IMESH(I) .NE. IMESH) CYCLE
@@ -2368,17 +2384,17 @@ DO I = 1, GPG%N_PROFILE_QUANTITIES
       PROF_DIR = 'z'
       IX = GPG%PROFILE_IX(I)
       IY = GPG%PROFILE_IY(I)
-      N  = G%NCELLZ
+      N  = M%NCELLZ
    ELSE IF (GPG%PROFILE_DIRECTION(I) .EQ. 'x') THEN !f(x)
       PROF_DIR = 'x'
       IY = GPG%PROFILE_IY(I)
       IZ = GPG%PROFILE_IZ(I)
-      N  = G%NCELLX
+      N  = M%NCELLX
    ELSE IF (GPG%PROFILE_DIRECTION(I) .EQ. 'y') THEN !f(y)
       PROF_DIR = 'y'
       IX = GPG%PROFILE_IX(I)
       IZ = GPG%PROFILE_IZ(I)
-      N  = G%NCELLY
+      N  = M%NCELLY
    ENDIF
          
    SELECT CASE (GPG%PROFILE_QUANTITY(I))
@@ -2424,10 +2440,19 @@ DO I = 1, GPG%N_PROFILE_QUANTITIES
          IF (PROF_DIR .EQ. 'y') PTR => TEMPARR(IZ,IX,: )
 
       CASE('REACTION_RATE_K') !Condensed/heterogeneous reaction rate
-         IRXN = GPG%PROFILE_QUANTITY_INDEX(I)
-         IF (PROF_DIR .EQ. 'z') PTR => G%OMEGASDAK(IRXN,: ,IX,IY)
-         IF (PROF_DIR .EQ. 'x') PTR => G%OMEGASDAK(IRXN,IZ,: ,IY)
-         IF (PROF_DIR .EQ. 'y') PTR => G%OMEGASDAK(IRXN,IZ,IX,: )
+         IRXN = GPG%PROFILE_QUANTITY_INDEX(I)  
+         IF (IRXN .EQ. 0) THEN
+            TEMPARR(:,:,:) = 0D0
+            DO J =1, SPROP%NRXN
+               TEMPARR(:,:,:) = TEMPARR(:,:,:) + G%OMEGASDAK(J,:,:,:) 
+            ENDDO
+         ELSE
+            TEMPARR(:,:,:)= G%OMEGASDAK(IRXN,:,:,:)
+         ENDIF
+
+         IF (PROF_DIR .EQ. 'z') PTR => TEMPARR(: ,IX,IY)
+         IF (PROF_DIR .EQ. 'x') PTR => TEMPARR(IZ,: ,IY)
+         IF (PROF_DIR .EQ. 'y') PTR => TEMPARR(IZ,IX,: )
 
       CASE ('YJ')
          ISPEC = GPG%PROFILE_QUANTITY_INDEX(I)
@@ -2450,6 +2475,11 @@ DO I = 1, GPG%N_PROFILE_QUANTITIES
          IF (PROF_DIR .EQ. 'z') PTR => TEMPARR(: ,IX,IY)
          IF (PROF_DIR .EQ. 'x') PTR => TEMPARR(IZ,: ,IY)
          IF (PROF_DIR .EQ. 'y') PTR => TEMPARR(IZ,IX,: )
+
+      CASE ('GAS_DENSITY') !Sum of gaseous mass fractions
+         IF (PROF_DIR .EQ. 'z') PTR => G%RGN(: ,IX,IY)
+         IF (PROF_DIR .EQ. 'x') PTR => G%RGN(IZ,: ,IY)
+         IF (PROF_DIR .EQ. 'y') PTR => G%RGN(IZ,IX,: )
 
       CASE('REACTION_RATE_L') !Homogeneous reaction rate
          IRXN = GPG%PROFILE_QUANTITY_INDEX(I)
@@ -2602,11 +2632,16 @@ DO I = 1, GPG%N_PROFILE_QUANTITIES
          IF (PROF_DIR .EQ. 'x') PTR => G%QSG(IZ,: ,IY)
          IF (PROF_DIR .EQ. 'y') PTR => G%QSG(IZ,IX,: )
 
+      CASE ('QSC')
+         IF (PROF_DIR .EQ. 'z') PTR => G%QSC(: ,IX,IY)
+         IF (PROF_DIR .EQ. 'x') PTR => G%QSC(IZ,: ,IY)
+         IF (PROF_DIR .EQ. 'y') PTR => G%QSC(IZ,IX,: )
+
       CASE ('RYIDZSIGMA')
          ISPEC = GPG%PROFILE_QUANTITY_INDEX(I)
-         IF (PROF_DIR .EQ. 'z') PTR => G%RYIDZSIGMAN(ISPEC,: ,IX,IY)
-         IF (PROF_DIR .EQ. 'x') PTR => G%RYIDZSIGMAN(ISPEC,IZ,: ,IY)
-         IF (PROF_DIR .EQ. 'y') PTR => G%RYIDZSIGMAN(ISPEC,IZ,IX,: )
+         IF (PROF_DIR .EQ. 'z') PTR => G%TIME_INTEGRATED_MASS_PRODUCEDN(ISPEC,: ,IX,IY)
+         IF (PROF_DIR .EQ. 'x') PTR => G%TIME_INTEGRATED_MASS_PRODUCEDN(ISPEC,IZ,: ,IY)
+         IF (PROF_DIR .EQ. 'y') PTR => G%TIME_INTEGRATED_MASS_PRODUCEDN(ISPEC,IZ,IX,: )
 
       CASE ('UNREACTEDNESS')
          ISPEC = GPG%PROFILE_QUANTITY_INDEX(I)
@@ -2635,29 +2670,25 @@ DO I = 1, GPG%N_PROFILE_QUANTITIES
          IF (PROF_DIR .EQ. 'y') PTR => G%HCV(IZ,IX,: )
 
       CASE ('M/M0')
-         TEMPARR(:,:,:) = 0D0
-         DO ISPEC = 1, SPROP%NSSPEC
-            TEMPARR(:,:,:) = TEMPARR(:,:,:) + G%RYIDZ0(ISPEC,:,:,:)
-         ENDDO
-         TEMPARR(:,:,:) = G%RDLTZN(:,:,:) / TEMPARR(:,:,:)
+         TEMPARR(:,:,:) = G%MASS_N(:,:,:) / G%INITIAL_MASS(0,:,:,:)
          IF (PROF_DIR .EQ. 'z') PTR => TEMPARR(: ,IX,IY)
          IF (PROF_DIR .EQ. 'x') PTR => TEMPARR(IZ,: ,IY)
          IF (PROF_DIR .EQ. 'y') PTR => TEMPARR(IZ,IX,: )
 
       CASE ('DLTZN')
-         IF (PROF_DIR .EQ. 'z') PTR => G%DLTZN(: ,IX,IY)
-         IF (PROF_DIR .EQ. 'x') PTR => G%DLTZN(IZ,: ,IY)
-         IF (PROF_DIR .EQ. 'y') PTR => G%DLTZN(IZ,IX,: )
+         IF (PROF_DIR .EQ. 'z') PTR => M%DZN(: ,IX,IY)
+         IF (PROF_DIR .EQ. 'x') PTR => M%DZN(IZ,: ,IY)
+         IF (PROF_DIR .EQ. 'y') PTR => M%DZN(IZ,IX,: )
 
       CASE ('DLTXN')
-         IF (PROF_DIR .EQ. 'z') PTR => G%DLTX(: ,IX,IY)
-         IF (PROF_DIR .EQ. 'x') PTR => G%DLTX(IZ,: ,IY)
-         IF (PROF_DIR .EQ. 'y') PTR => G%DLTX(IZ,IX,: )
+         IF (PROF_DIR .EQ. 'z') PTR => M%DX(: ,IX,IY)
+         IF (PROF_DIR .EQ. 'x') PTR => M%DX(IZ,: ,IY)
+         IF (PROF_DIR .EQ. 'y') PTR => M%DX(IZ,IX,: )
 
       CASE ('DLTYN')
-         IF (PROF_DIR .EQ. 'z') PTR => G%DLTY(: ,IX,IY)
-         IF (PROF_DIR .EQ. 'x') PTR => G%DLTY(IZ,: ,IY)
-         IF (PROF_DIR .EQ. 'y') PTR => G%DLTY(IZ,IX,: )
+         IF (PROF_DIR .EQ. 'z') PTR => M%DY(: ,IX,IY)
+         IF (PROF_DIR .EQ. 'x') PTR => M%DY(IZ,: ,IY)
+         IF (PROF_DIR .EQ. 'y') PTR => M%DY(IZ,IX,: )
 
       CASE DEFAULT
          WRITE(*,*) 'Error, profile quantity', GPG%PROFILE_QUANTITY(I), ' not defined.'
@@ -2679,7 +2710,7 @@ DO I = 1, GPG%N_PROFILE_QUANTITIES
    WRITE(LINE, '( *(E16.9, ",") )') BUFFER(1:STR_SIZE-1)  
    WRITE(LINE(LEN_TRIM(LINE)+1:), '(E16.9)') BUFFER(STR_SIZE)  
 
-   WRITE(LUPROF+I, '(A)') TRIM(LINE) 
+   WRITE(LUPROF+I, '(A)') TRIM(LINE)
 
    INQUIRE(UNIT=LUPROF+I,OPENED=LOPEN)
    IF (LOPEN) FLUSH(LUPROF+I)
@@ -2720,37 +2751,38 @@ REAL(EB), ALLOCATABLE, DIMENSION(:) :: TRNX,TRNY,TRNZ
 
 IF (GPG%FIRST_SF_IN_MESH(IMESH) .LT. 0) RETURN
 
-G=>GPM(IMESH)
+G => GPM(IMESH)
+M => G%MESH
 
 ALLOCATE(NOC(3)); NOC(:)= 0
 
 TITLE = 'Gpyro slice files'
 
 XMIN = 0D0
-XMAX = G%X(G%NCELLX) 
+XMAX = M%X(M%NCELLX) 
 
-IF (G%NCELLY .EQ. 1) THEN
+IF (M%NCELLY .EQ. 1) THEN
    YMIN = -0.00001
    YMAX =  0.00001
 ELSE
    YMIN = 0D0
-   YMAX = G%Y(G%NCELLY) 
+   YMAX = M%Y(M%NCELLY) 
 ENDIF
 
 ZMIN = 0D0
-ZMAX = G%Z(G%NCELLZ)
+ZMAX = M%Z(M%NCELLZ,1,1)
 
 ONE_INTEGER = 1
 NMESHES = 1 !Number of meshes
 
 I1   = 0
-I2   = G%NCELLX ; IBAR  = G%NCELLX
+I2   = M%NCELLX ; IBAR  = M%NCELLX
 
 J1   = 0
-J2   = G%NCELLY ; JBAR  = G%NCELLY
+J2   = M%NCELLY ; JBAR  = M%NCELLY
 
 K1   = 0
-K2   = G%NCELLZ ; KBAR = G%NCELLZ 
+K2   = M%NCELLZ ; KBAR = M%NCELLZ 
 
 STIME = REAL(TI, KIND=4)
 HEADER = TRIM(GPG%CASENAME)
@@ -2820,15 +2852,15 @@ IF (.NOT. G%SMOKEVIEW_FILE_OPENED_ALREADY) THEN
    WRITE(LUSMV,'(A)') 'TRNX'
    WRITE(LUSMV,'(I5)') NOC(1)
 
-   ALLOCATE(TRNX(0:G%NCELLX)); TRNX(:)=0D0
+   ALLOCATE(TRNX(0:M%NCELLX)); TRNX(:)=0D0
 
-   TRNX (1) = G%DLTX (1,1,1)
-   DO IX = 2, G%NCELLX-1
-      TRNX(IX)=G%X(IX)+0.5D0*G%DLTX (1,IX,1)
+   TRNX (1) = M%DX (1,1,1)
+   DO IX = 2, M%NCELLX-1
+      TRNX(IX)=M%X(IX)+0.5D0*M%DX (1,IX,1)
    ENDDO
-   TRNX (G%NCELLX) = G%XDIM
+   TRNX (M%NCELLX) = M%XDIM
 
-   DO IX=0, G%NCELLX
+   DO IX=0, M%NCELLX
       !WRITE(LUSMV,'(I5,F12.5)') IX,TRNX(IX)
       WRITE(LUSMV,'(I5,F13.6)') IX,TRNX(IX)
    ENDDO
@@ -2837,9 +2869,9 @@ IF (.NOT. G%SMOKEVIEW_FILE_OPENED_ALREADY) THEN
    WRITE(LUSMV,'(A)') 'TRNY'
    WRITE(LUSMV,'(I5)') NOC(2)
 
-   ALLOCATE(TRNY(0:G%NCELLY)); TRNY(:)=0D0
+   ALLOCATE(TRNY(0:M%NCELLY)); TRNY(:)=0D0
 
-   IF (G%NCELLY .EQ. 1) THEN
+   IF (M%NCELLY .EQ. 1) THEN
       TRNY(0) = YMIN
       TRNY(1) = YMAX
       !WRITE(LUSMV,'(I5,F12.5)') 0, TRNY(0)
@@ -2847,13 +2879,13 @@ IF (.NOT. G%SMOKEVIEW_FILE_OPENED_ALREADY) THEN
       WRITE(LUSMV,'(I5,F13.6)') 0, TRNY(0)
       WRITE(LUSMV,'(I5,F13.6)') 1, TRNY(1)
    ELSE
-      TRNY (1) = G%DLTY(1,1,1)
-      DO IY = 2, G%NCELLY-1
-         TRNY(IY)=G%Y(IY)+0.5D0*G%DLTY(1,1,IY)
+      TRNY (1) = M%DY(1,1,1)
+      DO IY = 2, M%NCELLY-1
+         TRNY(IY)=M%Y(IY)+0.5D0*M%DY(1,1,IY)
       ENDDO
-      TRNY (G%NCELLY) = G%YDIM
+      TRNY (M%NCELLY) = M%YDIM
 
-      DO IY=0, G%NCELLY
+      DO IY=0, M%NCELLY
          !WRITE(LUSMV,'(I5,F12.5)') IY,TRNY(IY)
          WRITE(LUSMV,'(I5,F13.6)') IY,TRNY(IY)
       ENDDO
@@ -2863,15 +2895,15 @@ IF (.NOT. G%SMOKEVIEW_FILE_OPENED_ALREADY) THEN
    WRITE(LUSMV,'(A)') 'TRNZ'
    WRITE(LUSMV,'(I5)') NOC(3)
 
-   ALLOCATE(TRNZ(0:G%NCELLZ)); TRNZ(:)=0D0
+   ALLOCATE(TRNZ(0:M%NCELLZ)); TRNZ(:)=0D0
 
-   TRNZ (1) = G%DLTZN(1,1,1)
-   DO IZ = 2, G%NCELLZ-1
-      TRNZ(IZ)=G%Z(IZ)+0.5D0*G%DLTZN(IZ,1,1)
+   TRNZ (1) = M%DZN(1,1,1)
+   DO IZ = 2, M%NCELLZ-1
+      TRNZ(IZ)=M%Z(IZ,1,1)+0.5D0*M%DZN(IZ,1,1)
    ENDDO
-   TRNZ (G%NCELLZ) = G%ZDIM
+   TRNZ (M%NCELLZ) = M%ZDIM
 
-   DO IZ=0, G%NCELLZ
+   DO IZ=0, M%NCELLZ
       !WRITE(LUSMV,'(I5,F12.5)') IZ,TRNZ(IZ)
       WRITE(LUSMV,'(I5,F13.6)') IZ,TRNZ(IZ)
    ENDDO
@@ -2887,7 +2919,7 @@ IF (.NOT. G%SMOKEVIEW_FILE_OPENED_ALREADY) THEN
    DO IY = 1, JBAR
    DO IX = 1, IBAR
    DO IZ = 1, KBAR
-      IF (G%IMASK(IZ,IX,IY) .EQV. IMASKVALTODUMP) ICOUNT = ICOUNT + 1
+      IF (M%IMASK(IZ,IX,IY) .EQV. IMASKVALTODUMP) ICOUNT = ICOUNT + 1
    ENDDO
    ENDDO
    ENDDO
@@ -2898,7 +2930,7 @@ IF (.NOT. G%SMOKEVIEW_FILE_OPENED_ALREADY) THEN
    DO IY = 1, JBAR
    DO IX = 1, IBAR
    DO IZ = 1, KBAR
-      IF (G%IMASK(IZ,IX,IY) .EQV. IMASKVALTODUMP) THEN
+      IF (M%IMASK(IZ,IX,IY) .EQV. IMASKVALTODUMP) THEN
          KI = KBAR + 1 - IZ
          !WRITE(LUSMV,'(6F12.5)') TRNX(IX-1), TRNX(IX), TRNY(IY-1), TRNY(IY), TRNZ(KI-1), TRNZ(KI)
          WRITE(LUSMV,'(6F13.6)') TRNX(IX-1), TRNX(IX), TRNY(IY-1), TRNY(IY), TRNZ(KI-1), TRNZ(KI)
@@ -2910,7 +2942,7 @@ IF (.NOT. G%SMOKEVIEW_FILE_OPENED_ALREADY) THEN
    DO IY = 1, JBAR
    DO IX = 1, IBAR
    DO IZ = 1, KBAR
-      IF (G%IMASK(IZ,IX,IY) .EQV. IMASKVALTODUMP) THEN
+      IF (M%IMASK(IZ,IX,IY) .EQV. IMASKVALTODUMP) THEN
          KI = KBAR + 1 - IZ
          WRITE(LUSMV,'(6I5)') IX-1, IX, IY-1, IY, KI-1, KI
       ENDIF
@@ -2981,6 +3013,11 @@ IF (.NOT. G%SMOKEVIEW_FILE_OPENED_ALREADY) THEN
             LONGNAME  = 'Yj_sum'
             SHORTNAME = 'Yj_sum'
             UNITS     = 'kg/kg'
+
+         CASE ('GAS_DENSITY') 
+            LONGNAME  = 'gas density'
+            SHORTNAME = 'rho_g'
+            UNITS     = 'kg/m3'
 
          CASE('REACTION_RATE_L') !Homogeneous reactions
             WRITE(TWO,'(I2.2)') GPG%SMOKEVIEW_QUANTITY_INDEX(N)
@@ -3114,6 +3151,11 @@ IF (.NOT. G%SMOKEVIEW_FILE_OPENED_ALREADY) THEN
             SHORTNAME = 'QSG'
             UNITS     = 'W/m3'              
 
+         CASE('QSC') 
+            LONGNAME = 'Chimical source term'
+            SHORTNAME = 'QSC'
+            UNITS     = 'W/m3'              
+
          CASE('RYIDZSIGMA') 
             LONGNAME = '(rho*Yi*DZ)_sigma'
             SHORTNAME = 'RYIDZSIGMA'
@@ -3228,9 +3270,9 @@ IF (.NOT. G%SMOKEVIEW_FILE_OPENED_ALREADY) THEN
 ENDIF
    
 !$omp PARALLEL DO SCHEDULE(STATIC) DEFAULT(PRIVATE)&
-!$OMP SHARED(G, SPROP, GPG, I1,I2,J1,J2,K1,K2,IBAR,JBAR,KBAR, STIME, IMESH)
+!$OMP SHARED(G, M, SPROP, GPG, I1,I2,J1,J2,K1,K2,IBAR,JBAR,KBAR, STIME, IMESH)
 DO N=1,GPG%N_SMOKEVIEW_QUANTITIES
-   IF (GPG%SMOKEVIEW_IMESH(N) .NE. IMESH) CYCLE
+   IF (GPG%SMOKEVIEW_IMESH(N) .NE. 0 .AND. GPG%SMOKEVIEW_IMESH(N) .NE. IMESH) CYCLE
    SELECT CASE(GPG%SMOKEVIEW_QUANTITY(N))
       CASE('TEMPERATURE') !Temperature
          QQ(:,:,:) =  273.15
@@ -3272,7 +3314,15 @@ DO N=1,GPG%N_SMOKEVIEW_QUANTITIES
       CASE('REACTION_RATE_K') !Condensed/heterogeneous reaction rate
          QQ(:,:,:) =  0.
          IRXN      =  GPG%SMOKEVIEW_QUANTITY_INDEX(N)
-         QQPTR     => G%OMEGASDAK(IRXN,:,:,:)
+         IF (IRXN .EQ. 0) THEN
+            TEMPARR(:,:,:) = 0D0
+            DO J =1, SPROP%NRXN
+               TEMPARR(:,:,:) = TEMPARR(:,:,:) + G%OMEGASDAK(J,:,:,:) 
+            ENDDO
+         ELSE
+            TEMPARR(:,:,:)= G%OMEGASDAK(IRXN,:,:,:)
+         ENDIF
+         QQPTR     => TEMPARR
          ADD       =  0.
 
       CASE('YJ') !Gas mass fraction
@@ -3295,6 +3345,11 @@ DO N=1,GPG%N_SMOKEVIEW_QUANTITIES
             TEMPARR(:,:,:) = TEMPARR(:,:,:) + G%YJGN(ISPEC,:,:,:)   
          ENDDO
          QQPTR        => TEMPARR
+         ADD          =  0.
+
+      CASE('GAS_DENSITY') 
+         QQ(:,:,:)    =  0.
+         QQPTR        => G%RGN(:,:,:)
          ADD          =  0.
 
       CASE('REACTION_RATE_L') !Homogeneous gaseous reaction rate
@@ -3448,10 +3503,15 @@ DO N=1,GPG%N_SMOKEVIEW_QUANTITIES
          QQPTR        => G%QSG(:,:,:)
          ADD          =  0.
 
+      CASE('QSC') !Chimical source term
+         QQ(:,:,:)    =  0.
+         QQPTR        => G%QSC(:,:,:)
+         ADD          =  0.
+
       CASE('RYIDZSIGMA') ! rho * Yi * Dz * sigma()
          QQ(:,:,:)    =  0.
          ISPEC        =  GPG%SMOKEVIEW_QUANTITY_INDEX(N)
-         QQPTR        => G%RYIDZSIGMAN(ISPEC,:,:,:)
+         QQPTR        => G%TIME_INTEGRATED_MASS_PRODUCEDN(ISPEC,:,:,:)
          ADD          =  0.
 
       CASE('UNREACTEDNESS') !Unreactedness
@@ -3482,7 +3542,7 @@ DO N=1,GPG%N_SMOKEVIEW_QUANTITIES
 
       CASE('M/M0') 
          QQ(:,:,:)    =  0.
-         TEMPARR(:,:,:) = G%RDLTZN(:,:,:) / G%RYIDZ0(0,:,:,:)
+         TEMPARR(:,:,:) = G%MASS_N(:,:,:) / G%INITIAL_MASS(0,:,:,:)
          QQPTR        => TEMPARR
          ADD          =  0.
 
@@ -3578,7 +3638,7 @@ DO N=1,GPG%N_SMOKEVIEW_QUANTITIES
    !DO J=1,JBAR
    !DO I=1,IBAR
    !   KI =  KBAR+1 - K       
-   !   IF (G%IMASK(K,I,J)) B(I,J,KI) = 0D0
+   !   IF (M%IMASK(K,I,J)) B(I,J,KI) = 0D0
    !ENDDO
    !ENDDO
    !ENDDO
@@ -3595,10 +3655,10 @@ DO N=1,GPG%N_SMOKEVIEW_QUANTITIES
    ENDDO
 
    !Fill in dummy cells for better visualzation:
-   QQMID(1:G%NCELLZ,1:G%NCELLX,1:G%NCELLY) = QQPTR(1:G%NCELLZ,1:G%NCELLX,1:G%NCELLY)
-   DO IY = 1, G%NCELLY
-   DO IX = 1, G%NCELLX
-   DO IZ = 1, G%NCELLZ
+   QQMID(1:M%NCELLZ,1:M%NCELLX,1:M%NCELLY) = QQPTR(1:M%NCELLZ,1:M%NCELLX,1:M%NCELLY)
+   DO IY = 1, M%NCELLY
+   DO IX = 1, M%NCELLX
+   DO IZ = 1, M%NCELLZ
       IF (G%NEEDSBCT(IZ,IX,IY)) QQMID(IZ-1,IX,IY) = QQPTR(IZ,IX,IY)
       IF (G%NEEDSBCB(IZ,IX,IY)) QQMID(IZ+1,IX,IY) = QQPTR(IZ,IX,IY)
       IF (G%NEEDSBCW(IZ,IX,IY)) QQMID(IZ,IX-1,IY) = QQPTR(IZ,IX,IY)
@@ -3873,7 +3933,12 @@ REAL(EB), DIMENSION(1:10) :: NU_RESIDUE, NU_GAS
 REAL(EB), PARAMETER :: DTMP  =  50. !Delta-TMP for RAMPs 
 REAL(EB), PARAMETER :: TMPHI = 1000. !Run RAMPs out to this T
 LOGICAL, PARAMETER :: TESTING=.FALSE.
+TYPE (GPYRO_MESH_TYPE), POINTER :: M
+INTEGER :: IMESH
 
+IMESH=GPG%IMESH(ICASE)
+G => GPM(IMESH)
+M => G%MESH
 ! Potentially remove period from casename if it exists
 CASENAME(:) = '                                                            '
 J = 0
@@ -3929,10 +3994,10 @@ WRITE(LU,91) "&REAC FUEL='PROPANE' /"
 WRITE(LU,*)
 
 ! Write &VENT info:
-IF (G%NCELLZ .EQ. 1) WRITE(LU,93) "&VENT XB = -0.5,0.5,-0.5,0.5,0.0,0.0, SURF_ID = '", TRIM(GPG%CASENAME), "_TGA', COLOR = 'BLUE' / "
-IF (G%NCELLZ .GT. 1) WRITE(LU,93) "&VENT XB = -0.5,0.5,-0.5,0.5,0.0,0.0, SURF_ID = '", TRIM(GPG%CASENAME), "_SLAB', COLOR = 'BLUE' / "
+IF (M%NCELLZ .EQ. 1) WRITE(LU,93) "&VENT XB = -0.5,0.5,-0.5,0.5,0.0,0.0, SURF_ID = '", TRIM(GPG%CASENAME), "_TGA', COLOR = 'BLUE' / "
+IF (M%NCELLZ .GT. 1) WRITE(LU,93) "&VENT XB = -0.5,0.5,-0.5,0.5,0.0,0.0, SURF_ID = '", TRIM(GPG%CASENAME), "_SLAB', COLOR = 'BLUE' / "
 
-IF (G%NCELLZ .GT. 1) THEN
+IF (M%NCELLZ .GT. 1) THEN
    WRITE(LU,91) "&VENT MB='XMIN', SURF_ID='OPEN' / "
    WRITE(LU,91) "&VENT MB='XMAX', SURF_ID='OPEN' / "
    WRITE(LU,91) "&VENT MB='YMIN', SURF_ID='OPEN' / "
@@ -3982,7 +4047,7 @@ DO IMATL = 1, SPROP%NSSPEC
    WRITESTR = "&MATL ID                       = '" // TRIM(GPG%CASENAME) // "_" // TRIM(SPROP%NAME(IMATL))
    WRITE(LU,91) TRIM(WRITESTR) // "'"
 
-   IF (SPROP%NKZ(IMATL) .NE. 0D0) THEN
+   IF (ABS(SPROP%NKZ(IMATL)) .GT. EPSILON_FB) THEN
       NRAMP = NRAMP + 1
       WRITE(TWO,'(I2.2)') NRAMP
       STR1 = "'RAMP_" // TRIM(GPG%CASENAME) // "_" // TWO // "'"
@@ -3997,7 +4062,7 @@ DO IMATL = 1, SPROP%NSSPEC
    WRITESTR = "      DENSITY                  = " // TRIM(STR1)
    WRITE(LU,91) TRIM(WRITESTR)
 
-   IF (SPROP%NC(IMATL) .NE. 0D0) THEN
+   IF (ABS(SPROP%NC(IMATL)) .GT. EPSILON_FB) THEN
       NRAMP = NRAMP + 1
       WRITE(TWO,'(I2.2)') NRAMP
       STR1 = "'RAMP_" // TRIM(GPG%CASENAME) // "_" // TWO // "'"
@@ -4126,21 +4191,21 @@ ENDDO
 WRITE(LU,*)
       
 ! Write &SURF line: 
-IF (G%NCELLZ .EQ. 1) WRITE(LU,93) "&SURF ID                         = '", TRIM(GPG%CASENAME), "_TGA' "
-IF (G%NCELLZ .GT. 1) WRITE(LU,93) "&SURF ID                         = '", TRIM(GPG%CASENAME), "_SLAB' "
+IF (M%NCELLZ .EQ. 1) WRITE(LU,93) "&SURF ID                         = '", TRIM(GPG%CASENAME), "_TGA' "
+IF (M%NCELLZ .GT. 1) WRITE(LU,93) "&SURF ID                         = '", TRIM(GPG%CASENAME), "_SLAB' "
 
 ! Only for testing:
-IF (G%NCELLZ .GT. 1 .AND. TESTING) THEN
+IF (M%NCELLZ .GT. 1 .AND. TESTING) THEN
    WRITE(STR1,'(F4.1)') GPG%ALLBC(2)%QE*0.001
    STR2 = "      EXTERNAL_FLUX              = " // TRIM(STR1)
    WRITE(LU,91) TRIM(STR2)
 ENDIF
 
 STR1 = "      THICKNESS                  = "
-IF (G%NCELLZ .EQ. 1) THEN
+IF (M%NCELLZ .EQ. 1) THEN
    WRITE(STR2,'(F8.5)') 0.00001
 ELSE
-   WRITE(STR2,'(F9.6)') G%ZDIM
+   WRITE(STR2,'(F9.6)') M%ZDIM
 ENDIF
 WRITE(LU,91) TRIM(STR1) // TRIM (STR2)
 
@@ -4148,10 +4213,10 @@ STR1 = "      STRETCH_FACTOR             = "
 WRITE(STR2,'(F7.4)') 1D0
 WRITE(LU,91) TRIM(STR1) // TRIM (STR2)
 
-IF (G%NCELLZ .GT. 1) THEN
+IF (M%NCELLZ .GT. 1) THEN
    ALPHA = SPROP%K0Z(1)/(SPROP%R0(1)*SPROP%C0(1))
    STR1 = "      CELL_SIZE_FACTOR           = "
-   WRITE(STR2,'(F6.3)') 1.2 * G%ZDIM / ((G%NCELLZ-1) * SQRT(ALPHA) ) 
+   WRITE(STR2,'(F6.3)') 1.2 * M%ZDIM / ((M%NCELLZ-1) * SQRT(ALPHA) ) 
    WRITE(LU,91) TRIM(STR1) // TRIM (STR2)
 ENDIF
 
@@ -4169,13 +4234,13 @@ DO IMATL = 1, SPROP%NSSPEC
 ENDDO
 
 ! Only for testing:
-IF (G%NCELLZ .GT. 1 .AND. TESTING) THEN
+IF (M%NCELLZ .GT. 1 .AND. TESTING) THEN
    WRITE(STR1,'(F6.3)') GPG%ALLBC(2)%HC
    STR2 = "      HEAT_TRANSFER_COEFFICIENT  = " // TRIM(STR1) // ", "
    WRITE(LU,91) TRIM(STR2)
 ENDIF
 
-IF (G%NCELLZ .EQ. 1) THEN
+IF (M%NCELLZ .EQ. 1) THEN
    WRITE(STR1,'(F6.3)') 0D0
    STR2 = "      HEAT_TRANSFER_COEFFICIENT  = " // TRIM(STR1) // ", "
    WRITE(LU,91) TRIM(STR2)
@@ -4187,8 +4252,7 @@ WRITE(LU,91) TRIM(STR1)
 ! Write RAMP's for temperature-dependent thermal properties
 NRAMP = 0
 DO IMATL = 1, SPROP%NSSPEC
-      
-   IF (SPROP%NKZ(IMATL) .NE. 0D0) THEN
+   IF (ABS(SPROP%NKZ(IMATL)) .GT. EPSILON_FB) THEN
       WRITE(LU,*)
       NRAMP = NRAMP + 1
       WRITE(TWO,'(I2.2)') NRAMP
@@ -4211,8 +4275,8 @@ DO IMATL = 1, SPROP%NSSPEC
       ENDDO
 
    ENDIF
-         
-   IF (SPROP%NC(IMATL) .NE. 0D0) THEN
+   
+   IF (ABS(SPROP%NC(IMATL)) .GT. EPSILON_FB) THEN
       WRITE(LU,*)
       NRAMP = NRAMP + 1
       WRITE(TWO,'(I2.2)') NRAMP
@@ -4249,7 +4313,7 @@ WRITE(LU,*)
       
 ! DEVC's:
 
-IF (G%NCELLZ .EQ. 1) THEN
+IF (M%NCELLZ .EQ. 1) THEN
    WRITE(LU,91) "&DEVC XYZ = 0.0,0.0,0.0, IOR =  3, QUANTITY = 'WALL TEMPERATURE', ID= 'temp' /"
    WRITE(LU,91) "&DEVC XYZ = 0.0,0.0,0.0, IOR =  3, QUANTITY = 'NORMALIZED MASS', ID ='m/m0' /"
    DO ISPEC = 1, GPROP%NGSPEC

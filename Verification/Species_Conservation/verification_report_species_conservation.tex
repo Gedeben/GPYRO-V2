@@ -1,0 +1,74 @@
+\ifdefined\SpecsCons
+\documentclass[12pt]{report}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[a4paper, margin=1in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{textcomp}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{enumitem}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage[font=footnotesize]{subcaption}
+\usetikzlibrary{decorations.pathmorphing,patterns}
+\usepackage[hidelinks]{hyperref} % <- hypertext
+\usepackage{caption}
+
+% <- Define folder macros for modularity
+\newcommand{\ATGSIMPLEDIR}{Simple_TGA}  % PMMA TGA
+\newcommand{\DEFDIR}{Deformation}        % Deformation
+\newcommand{\DRYINGDIR}{Drying}       % Drying 0D
+\newcommand{\MIXDIR}{Mixture_Law}   % Mixture law verification
+\newcommand{\TEMPDEPDIR}{T_Dependant_Variables}       % Evolution of variables
+\newcommand{\OXYDIR}{Oxydation}   % Oxydation verification
+\newcommand{\RXNHDIR}{Reaction_Enthalpy}   % Reaction Enthalpy verification
+
+
+\begin{document}
+\fi
+
+\graphicspath{
+  {\ATGSIMPLEDIR/}
+  {\ATGPVCDIR/}
+  {\DEFDIR/}
+  {\DRYINGDIR/}
+  {\MIXDIR/}
+  {\TEMPDEPDIR/}
+  {\OXYDIR/}
+  {\RXNHDIR/}
+}
+
+
+\chapter{Species and Mass Conservation}
+
+\newpage
+\input{\MIXDIR/Mixture_Law.tex}
+
+\newpage
+\input{\TEMPDEPDIR/T_Dependant_Variables.tex}
+
+
+\newpage
+\input{\ATGSIMPLEDIR/simple_TGA.tex}
+
+\newpage
+\input{\OXYDIR/Oxydation.tex}
+
+\newpage
+\input{\DRYINGDIR/drying.tex}
+
+\newpage
+\input{\RXNHDIR/Reaction_Enthalpy.tex}
+
+\newpage
+\input{\DEFDIR/deformation.tex}
+
+\ifdefined\SpecsCons
+\newpage
+\appendix
+\renewcommand{\thesection}{Appendix~\Alph{section}}
+\input{Annexe_TGA_solution.tex}
+\end{document}
+\fi

@@ -5,999 +5,31 @@ USE GPYRO_VARS
 USE GPYRO_FUNCS
 USE GPYRO_IO
 USE GPYRO_MASS, ONLY : RHOOFT
+USE GPYRO_MESH, ONLY : INIT_MESH
 
 IMPLICIT NONE
 
 CONTAINS
 
-!******************************************************************************	
-SUBROUTINE CHECK_GPYRO(IRANK)
-!******************************************************************************	
-
-INTEGER ,INTENT(IN) :: IRANK
-INTEGER I, J, N, IHIBOUND,ITYPE,IRXN,ICINDEX,ISPEC,IOBST
-INTEGER :: ICASE,IMESH, NCELLZ, NCELLX, NCELLY, NMESH
-REAL(EB):: ZDIM, XDIM, YDIM
-CHARACTER(60), ALLOCATABLE, DIMENSION(:) :: QUANTITY_NAME
-CHARACTER(2) :: TWO
-CHARACTER(3) :: THREE
-CHARACTER(300) :: MESSAGE
-INTEGER, ALLOCATABLE, DIMENSION(:) :: QUANTITY_INDEX, QUANTITY_IMESH
-REAL(EB) :: SUMVAL
-
-CHARACTER(LEN=12) :: FACENAME(6)
-INTEGER :: IFACE, ISURF, BC_IDX, ICNUM
-LOGICAL :: FOUND
-CHARACTER(LEN=20) ::  STR_IMESH, STR_BCIDX, STR_FACEIDX
-
-
-IHIBOUND = MAX(GPG%N_POINT_QUANTITIES, GPG%N_PROFILE_QUANTITIES, GPG%N_SMOKEVIEW_QUANTITIES)
-ALLOCATE(QUANTITY_NAME (1:IHIBOUND))
-ALLOCATE(QUANTITY_INDEX(1:IHIBOUND))
-ALLOCATE(QUANTITY_IMESH(1:IHIBOUND))
-
-! Check for requested output that could cause segmentation faults 
-DO ITYPE = 1, 3
-   IF (ITYPE .EQ. 1) THEN
-      IHIBOUND = GPG%N_POINT_QUANTITIES
-      QUANTITY_NAME (1:IHIBOUND) = GPG%POINT_QUANTITY      (1:IHIBOUND)
-      QUANTITY_INDEX(1:IHIBOUND) = GPG%POINT_QUANTITY_INDEX(1:IHIBOUND)
-      QUANTITY_IMESH(1:IHIBOUND) = GPG%POINT_IMESH         (1:IHIBOUND)
-   ENDIF
-
-   IF (ITYPE .EQ. 2) THEN
-      IHIBOUND = GPG%N_PROFILE_QUANTITIES
-      QUANTITY_NAME (1:IHIBOUND) = GPG%PROFILE_QUANTITY      (1:IHIBOUND)
-      QUANTITY_INDEX(1:IHIBOUND) = GPG%PROFILE_QUANTITY_INDEX(1:IHIBOUND)
-      QUANTITY_IMESH(1:IHIBOUND) = GPG%PROFILE_IMESH         (1:IHIBOUND)
-   ENDIF
-
-   IF (ITYPE .EQ. 3) THEN
-      IHIBOUND = GPG%N_SMOKEVIEW_QUANTITIES
-      QUANTITY_NAME (1:IHIBOUND) = GPG%SMOKEVIEW_QUANTITY      (1:IHIBOUND)
-      QUANTITY_INDEX(1:IHIBOUND) = GPG%SMOKEVIEW_QUANTITY_INDEX(1:IHIBOUND)
-      QUANTITY_IMESH(1:IHIBOUND) = GPG%SMOKEVIEW_IMESH         (1:IHIBOUND)
-   ENDIF
-
-   ! First check to make sure quantity name is valid
-   DO I = 1, IHIBOUND
-      SELECT CASE(QUANTITY_NAME(I))
-         CASE ('TEMPERATURE')
-         CASE ('ENTHALPY')
-         CASE ('YI')
-         CASE ('XI')
-         CASE ('CI')
-         CASE ('YISUM')
-         CASE ('REACTION_RATE_K')
-         CASE ('YJ')
-         CASE ('CJ') 
-         CASE ('YJSUM') 
-         CASE ('REACTION_RATE_L')
-         CASE ('S')
-         CASE ('THERMAL_CONDUCTIVITY_Z')
-         CASE ('THERMAL_CONDUCTIVITY_X')
-         CASE ('THERMAL_CONDUCTIVITY_Y')
-         CASE ('BULK_DENSITY')
-         CASE ('SOLID_DENSITY')
-         CASE ('SPECIFIC_HEAT_CAPACITY')
-         CASE ('PRESSURE')
-         CASE ('MASS_FLUX_TOTAL_Z')
-         CASE ('MASS_FLUX_TOTAL_X')
-         CASE ('MASS_FLUX_TOTAL_Y')
-         CASE ('GAS_TEMPERATURE')
-         CASE ('GAS_ENTHALPY')
-         CASE ('TG-T')
-         CASE ('SHYI')
-         CASE ('SHP')
-         CASE ('SHM')
-         CASE ('POROSITY')
-         CASE ('D12')
-         CASE ('SHGP')
-         CASE ('SHGM')
-         CASE ('QSG')
-         CASE ('RYIDZSIGMA')
-         CASE ('UNREACTEDNESS')
-         CASE ('GOMEGA3')
-         CASE ('RE')
-         CASE ('NU')
-         CASE ('HCV')
-         CASE ('NEEDSBCT')
-         CASE ('NEEDSBCB')
-         CASE ('NEEDSBCE')
-         CASE ('NEEDSBCW')
-         CASE ('NEEDSBCN')
-         CASE ('NEEDSBCS')
-         CASE ('DLTZN')
-         CASE ('DLTXN')
-         CASE ('DLTYN')
-
-         CASE ('PERMEABILITY_Z')
-            IF ( .NOT. GPG%SOLVE_PRESSURE) THEN
-               MESSAGE='Error:  cannot dump PERMEABILITY_Z unless SOLVE_PRESSURE=.TRUE.'
-               CALL SHUTDOWN_GPYRO(MESSAGE)
-            ENDIF
-         CASE ('PERMEABILITY_X')
-            IF ( .NOT. GPG%SOLVE_PRESSURE) THEN
-               MESSAGE='Error:  cannot dump PERMEABILITY_X unless SOLVE_PRESSURE=.TRUE.'
-               CALL SHUTDOWN_GPYRO(MESSAGE)
-            ENDIF      
-         CASE ('PERMEABILITY_Y')
-            IF ( .NOT. GPG%SOLVE_PRESSURE) THEN
-               MESSAGE='Error:  cannot dump PERMEABILITY_Y unless SOLVE_PRESSURE=.TRUE.'
-               CALL SHUTDOWN_GPYRO(MESSAGE)
-            ENDIF 
-
-         CASE ('M/M0')
-            IF (ITYPE .NE. 1) THEN
-               MESSAGE='Error, M/M0 is only a point dump quantity.'
-               CALL SHUTDOWN_GPYRO(MESSAGE)
-            ENDIF
-
-         CASE ('CML')
-            IF (ITYPE .NE. 1) THEN
-               MESSAGE='Error, CML is only a point dump quantity.'
-               CALL SHUTDOWN_GPYRO(MESSAGE)
-            ENDIF
-         
-         CASE ('MLR')
-            IF (ITYPE .NE. 1) THEN
-               MESSAGE='Error, MLR is only a point dump quantity.'
-               CALL SHUTDOWN_GPYRO(MESSAGE)
-            ENDIF
-
-            IF (QUANTITY_INDEX(I) .GT. GPROP%NGSPEC) THEN
-               MESSAGE='For MLR, INDEX cannot be greater than # of gas species.'
-               CALL SHUTDOWN_GPYRO(MESSAGE)
-            ENDIF
-
-            IF (QUANTITY_INDEX(I) .LT. 0) THEN
-               MESSAGE='For MLR, INDEX cannot be less than 0.'
-               CALL SHUTDOWN_GPYRO(MESSAGE)
-            ENDIF
-
-         CASE ('GGR') ! Gas generation rate
-            IF (ITYPE .NE. 1) THEN
-               MESSAGE='Error, GGR is only a point dump quantity.'
-               CALL SHUTDOWN_GPYRO(MESSAGE)
-            ENDIF
-
-            IF (QUANTITY_INDEX(I) .GT. GPROP%NGSPEC) THEN
-               MESSAGE='For GGR, INDEX cannot be greater than # of gas species.'
-               CALL SHUTDOWN_GPYRO(MESSAGE)
-            ENDIF
-
-            IF (QUANTITY_INDEX(I) .LT. 0) THEN
-               MESSAGE='For GGR, INDEX cannot be less than 0.'
-               CALL SHUTDOWN_GPYRO(MESSAGE)
-            ENDIF
-
-         CASE ('HRR')
-            IF (ITYPE .NE. 1) THEN
-               MESSAGE='Error, HRR is only a point dump quantity.'
-               CALL SHUTDOWN_GPYRO(MESSAGE)
-            ENDIF
-
-         CASE ('MDOTPPZ')
-            IF (QUANTITY_INDEX(I) .GT. GPROP%NGSPEC) THEN
-               MESSAGE='For MDOTPPZ, INDEX cannot be greater than # of gas species.'
-               CALL SHUTDOWN_GPYRO(MESSAGE)
-            ENDIF
-
-            IF (QUANTITY_INDEX(I) .LT. 0) THEN
-               MESSAGE='For MDOTPPZ, INDEX cannot be less than 0.'
-               CALL SHUTDOWN_GPYRO(MESSAGE)
-            ENDIF
-            IMESH  = QUANTITY_IMESH(I)
-            NCELLX = GPG%NCELLX(IMESH)
-            NCELLY = GPG%NCELLY(IMESH)
-            
-            IF (NCELLX .GT. 1 .OR. NCELLY .GT. 1) THEN
-               MESSAGE='MDOTPPZ can only be used for 0D/1D simulations.'
-               CALL SHUTDOWN_GPYRO(MESSAGE)
-            ENDIF
-
-            IF (ITYPE .EQ. 2) THEN
-               IF (GPG%PROFILE_DIRECTION(I) .NE. 'z' .AND. GPG%PROFILE_DIRECTION(I) .NE. 'Z') THEN
-                  MESSAGE='For MDOTPPZ, only valid PROFILE_DIRECTION is z'
-                  CALL SHUTDOWN_GPYRO(MESSAGE)
-               ENDIF
-            ENDIF
-
-            IF (ITYPE .EQ. 3) THEN
-               MESSAGE='Cannot dump Smokeview plane for MDOTPPZ'
-               CALL SHUTDOWN_GPYRO(MESSAGE)
-            ENDIF
-            
-         !CASE ('FRONT_FACE_DIFFUSIVE_FLUX')
-         !   IF (ITYPE .NE. 1) THEN
-         !      MESSAGE='Error, FRONT_FACE_DIFFUSIVE_FLUX is only a point dump quantity.'
-         !      CALL SHUTDOWN_GPYRO(MESSAGE)
-         !   ENDIF
-
-         !CASE ('FRONT_FACE_CONVECTIVE_FLUX')
-         !   IF (ITYPE .NE. 1) THEN
-         !      MESSAGE='Error, FRONT_FACE_CONVECTIVE_FLUX is only a point dump quantity.'
-         !      CALL SHUTDOWN_GPYRO(MESSAGE)
-         !   ENDIF
-
-         !CASE ('FRONT_FACE_MASS_FLUX')
-         !   IF (ITYPE .NE. 1) THEN
-         !      MESSAGE='Error, FRONT_FACE_MASS_FLUX is only a point dump quantity.'
-         !      CALL SHUTDOWN_GPYRO(MESSAGE)
-         !   ENDIF
-
-         CASE ('MPPI')
-            IF (ITYPE .NE. 1) THEN
-               MESSAGE='Error, MPPI is only a point dump quantity.'
-               CALL SHUTDOWN_GPYRO(MESSAGE)
-            ENDIF
-
-         CASE ('THICKNESS')
-            IF (ITYPE .NE. 1) THEN
-               MESSAGE='Error, THICKNESS is only a point dump quantity.'
-               CALL SHUTDOWN_GPYRO(MESSAGE)
-            ENDIF
-
-         CASE ('DT')
-            IF (ITYPE .NE. 1) THEN
-               MESSAGE='Error, DT is only a point dump quantity.'
-               CALL SHUTDOWN_GPYRO(MESSAGE)
-            ENDIF
-
-         CASE ('N_ITERATIONS')
-            IF (ITYPE .NE. 1) THEN
-               MESSAGE='Error, N_ITERATIONS is only a point dump quantity.'
-               CALL SHUTDOWN_GPYRO(MESSAGE)
-            ENDIF
-
-         CASE ('TOTAL_MASS')
-            IF (ITYPE .NE. 1) THEN
-               MESSAGE='Error, TOTAL_MASS is only a point dump quantity.'
-               CALL SHUTDOWN_GPYRO(MESSAGE)
-            ENDIF
-
-         CASE DEFAULT
-            WRITE(THREE,'(I3.3)') I
-            IF (ITYPE .EQ. 1) MESSAGE = 'Error, quantity ' // TRIM(QUANTITY_NAME(I)) // ' not valid for Point dump. INDEX = ' // THREE
-            IF (ITYPE .EQ. 2) MESSAGE = 'Error, quantity ' // TRIM(QUANTITY_NAME(I)) // ' not valid for profile dump. INDEX = ' // THREE
-            IF (ITYPE .EQ. 3) MESSAGE = 'Error, quantity ' // TRIM(QUANTITY_NAME(I)) // ' not valid for Smokeview dump. INDEX = ' // THREE
-            CALL SHUTDOWN_GPYRO(MESSAGE)
-      END SELECT
-   ENDDO
-
-   DO I = 1, IHIBOUND
-
-      IF (QUANTITY_NAME(I) .EQ. 'YI') THEN
-         IF (QUANTITY_INDEX(I) .GT. SPROP%NSSPEC) THEN 
-            MESSAGE='For output quantity YI, species index cannot be greater than the number of solid species.' 
-            CALL SHUTDOWN_GPYRO(MESSAGE)
-         ENDIF
-      ENDIF
-
-      IF (QUANTITY_NAME(I) .EQ. 'XI') THEN
-         IF (QUANTITY_INDEX(I) .GT. SPROP%NSSPEC) THEN 
-            MESSAGE='For output quantity XI, species index cannot begreater than the number of solid species.' 
-            CALL SHUTDOWN_GPYRO(MESSAGE)
-         ENDIF
-      ENDIF
-
-      IF (QUANTITY_NAME(I) .EQ. 'CI') THEN
-         IF (QUANTITY_INDEX(I) .GT. SPROP%NSSPEC) THEN 
-            MESSAGE='For output quantity CI, species index cannot be greater than the number of solid species.' 
-            CALL SHUTDOWN_GPYRO(MESSAGE)
-         ENDIF
-      ENDIF
-
-      IF (QUANTITY_NAME(I) .EQ. 'TOTAL_MASS') THEN
-         IF (QUANTITY_INDEX(I) .GT. SPROP%NSSPEC) THEN 
-            MESSAGE='For output quantity TOTAL_MASS, species index cannot be greater than the number of solid species.' 
-            CALL SHUTDOWN_GPYRO(MESSAGE)
-         ENDIF
-      ENDIF
-
-      IF (QUANTITY_NAME(I) .EQ. 'REACTION_RATE_K') THEN
-         IF (QUANTITY_INDEX(I) .GT. SPROP%NRXN) THEN 
-            MESSAGE='For output quantity REACTION_RATE_K, reaction index cannot be greater than the number of reactions.' 
-            CALL SHUTDOWN_GPYRO(MESSAGE)
-         ENDIF
-      ENDIF
-
-      IF (QUANTITY_NAME(I) .EQ. 'YJ') THEN
-         IF (QUANTITY_INDEX(I) .GT. GPROP%NGSPEC) THEN 
-            MESSAGE='For output quantity YJ, species index cannot be greater than the number of gaseous species.' 
-            CALL SHUTDOWN_GPYRO(MESSAGE)
-         ENDIF
-      ENDIF
-
-      IF (QUANTITY_NAME(I) .EQ. 'CJ') THEN
-         IF (QUANTITY_INDEX(I) .GT. GPROP%NGSPEC) THEN 
-            MESSAGE='For output quantity CJ, species index cannot be greater than the number of gaseous species.' 
-            CALL SHUTDOWN_GPYRO(MESSAGE)
-         ENDIF
-      ENDIF
-
-      IF (QUANTITY_NAME(I) .EQ. 'REACTION_RATE_L') THEN
-         IF (QUANTITY_INDEX(I) .GT. GPROP%NHGRXN) THEN 
-            MESSAGE='For output quantity REACTION_RATE_L, reaction index cannot be greater than the number of homogeneous gaseous reactions.' 
-            CALL SHUTDOWN_GPYRO(MESSAGE)
-         ENDIF
-      ENDIF
-
-      IF (QUANTITY_NAME(I) .EQ. 'PRESSURE') THEN
-         IF (.NOT. GPG%SOLVE_PRESSURE) THEN 
-            MESSAGE='PRESSURE is not a valid output quantity unless SOLVE_PRESSURE = .TRUE.'
-            CALL SHUTDOWN_GPYRO(MESSAGE)
-         ENDIF
-      ENDIF
-
-      IF (QUANTITY_NAME(I) .EQ. 'MDOTPPDARCY') THEN
-         MESSAGE='MDOTPPDARCY is no longer a valid output quantity. Try MASS_FLUX_TOTAL_Z or MASS_FLUX_TOTAL_X or MASS_FLUX_TOTAL_Y.'
-         CALL SHUTDOWN_GPYRO(MESSAGE)
-      ENDIF
-
-      IF (QUANTITY_NAME(I) .EQ. 'THERMAL_CONDUCTIVITY') THEN
-         MESSAGE='THERMAL_CONDUCTIVITY is not a valid output quantity. Specify THERMAL_CONDUCTIVITY_Z, THERMAL_CONDUCTIVITY_Y, or THERMAL_CONDUCTIVITY_X'
-         CALL SHUTDOWN_GPYRO(MESSAGE)
-      ENDIF
-
-      IF (QUANTITY_NAME(I) .EQ. 'PERMEABILITY') THEN
-         MESSAGE='PERMEABILITY is not a valid output quantity. Specify PERMEABILITY_Z, PERMEABILITY_Y, or PERMEABILITY_X'
-         CALL SHUTDOWN_GPYRO(MESSAGE)
-      ENDIF
-
-
-      IF (QUANTITY_NAME(I) .EQ. 'MASS_FLUX_TOTAL_X') THEN
-         IF (.NOT. GPG%SOLVE_PRESSURE) THEN 
-            MESSAGE='MASS_FLUX_TOTAL_X is not a valid output quantity unless SOLVE_PRESSURE = .TRUE.'
-            CALL SHUTDOWN_GPYRO(MESSAGE)
-         ENDIF
-      ENDIF
-
-      IF (QUANTITY_NAME(I) .EQ. 'MASS_FLUX_TOTAL_Y') THEN
-         IF (.NOT. GPG%SOLVE_PRESSURE) THEN 
-            MESSAGE='MASS_FLUX_TOTAL_Y is not a valid output quantity unless SOLVE_PRESSURE = .TRUE.'
-            CALL SHUTDOWN_GPYRO(MESSAGE)
-         ENDIF
-      ENDIF
-
-      IF (QUANTITY_NAME(I) .EQ. 'GAS_TEMPERATURE') THEN
-         IF ( (.NOT. GPG%SOLVE_GAS_ENERGY) .OR. (GPG%THERMAL_EQUILIBRIUM .AND. GPG%SOLVE_GAS_ENERGY)) THEN 
-            MESSAGE='GAS_TEMPERATURE is not a valid output quantity unless SOLVE_GAS_ENERGY = .TRUE. or in thermal equilibrium mode.'
-            CALL SHUTDOWN_GPYRO(MESSAGE)
-         ENDIF
-      ENDIF
-
-      IF (QUANTITY_NAME(I) .EQ. 'GAS_ENTHALPY') THEN
-         IF ( (.NOT. GPG%SOLVE_GAS_ENERGY) .OR. (GPG%THERMAL_EQUILIBRIUM .AND. GPG%SOLVE_GAS_ENERGY)) THEN 
-            MESSAGE='GAS_ENTHALPY is not a valid output quantity unless SOLVE_GAS_ENERGY = .TRUE.'
-            CALL SHUTDOWN_GPYRO(MESSAGE)
-         ENDIF
-      ENDIF
-
-      IF (QUANTITY_NAME(I) .EQ. 'TG-T') THEN
-         IF ( (.NOT. GPG%SOLVE_GAS_ENERGY) .OR. (GPG%THERMAL_EQUILIBRIUM .AND. GPG%SOLVE_GAS_ENERGY)) THEN 
-            MESSAGE='TG-T is not a valid output quantity unless SOLVE_GAS_ENERGY = .TRUE.'
-            CALL SHUTDOWN_GPYRO(MESSAGE)
-         ENDIF
-      ENDIF
-
-      IF (QUANTITY_NAME(I) .EQ. 'PERMEABILITY') THEN
-         IF (.NOT. GPG%SOLVE_PRESSURE) THEN 
-            MESSAGE='PERMEABILITY is not a valid output quantity unless SOLVE_PRESSURE = .TRUE.'
-            CALL SHUTDOWN_GPYRO(MESSAGE)
-         ENDIF
-      ENDIF
-
-      IF (QUANTITY_NAME(I) .EQ. 'POROSITY') THEN
-         IF (.NOT. GPG%SOLVE_POROSITY ) THEN
-            MESSAGE = 'Error: POROSITY is not a valid output quantity unless the pure solid density RS0 of ' // &
-            'condensed species is defined, and at least one of them differs from the bulk density R0.'
-            CALL SHUTDOWN_GPYRO(MESSAGE)
-         ENDIF
-      ENDIF
-
-      IF (QUANTITY_NAME(I) .EQ. 'SOLID_DENSITY') THEN
-         IF (.NOT. GPG%SOLVE_POROSITY ) THEN
-            MESSAGE = 'Error: SOLID_DENSITY is not a valid output quantity unless the pure solid density RS0 of ' // &
-            'condensed species is defined, and at least one of them differs from the bulk density R0.'
-            CALL SHUTDOWN_GPYRO(MESSAGE)
-         ENDIF
-      ENDIF
-
-      IF (QUANTITY_NAME(I) .EQ. 'D12') THEN
-         IF (.NOT. (GPG%SOLVE_PRESSURE .OR. GPG%SOLVE_GAS_YJ) ) THEN 
-            MESSAGE='D12 is not a valid output quantity unless SOLVE_PRESSURE = .TRUE. .OR. SOLVE_GAS_YJ = .TRUE.'
-            CALL SHUTDOWN_GPYRO(MESSAGE)
-         ENDIF
-      ENDIF
-
-      IF (QUANTITY_NAME(I) .EQ. 'SHGP') THEN
-         IF ( (.NOT. GPG%SOLVE_GAS_ENERGY) .OR. (GPG%THERMAL_EQUILIBRIUM .AND. GPG%SOLVE_GAS_ENERGY)) THEN 
-            MESSAGE='SHGP is not a valid output quantity unless SOLVE_GAS_ENERGY = .TRUE.'
-            CALL SHUTDOWN_GPYRO(MESSAGE)
-         ENDIF
-      ENDIF
-
-      IF (QUANTITY_NAME(I) .EQ. 'SHGM') THEN
-         IF ( (.NOT. GPG%SOLVE_GAS_ENERGY) .OR. (GPG%THERMAL_EQUILIBRIUM .AND. GPG%SOLVE_GAS_ENERGY)) THEN 
-            MESSAGE='SHGM is not a valid output quantity unless SOLVE_GAS_ENERGY = .TRUE.'
-            CALL SHUTDOWN_GPYRO(MESSAGE)
-         ENDIF
-      ENDIF
-
-      IF (QUANTITY_NAME(I) .EQ. 'GOMEGA3') THEN
-         IF (QUANTITY_INDEX(I) .GT. SPROP%NSSPEC) THEN 
-            MESSAGE='For output quantity GOMEGA3, species index cannot be greater than the number of solid species.' 
-            CALL SHUTDOWN_GPYRO(MESSAGE)
-         ENDIF
-      ENDIF
-
-      IF (GPG%THERMAL_EQUILIBRIUM .OR. GPG%HCV .GT. 0D0) THEN
-         IF (QUANTITY_NAME(I) .EQ. 'RE') THEN
-            MESSAGE='RE is not a valid output quantity unless THERMAL_EQUILIBRIUM = .FALSE. and HCV < 0'
-            CALL SHUTDOWN_GPYRO(MESSAGE)
-         ENDIF
-
-         IF (QUANTITY_NAME(I) .EQ. 'NU') THEN
-            MESSAGE='NU is not a valid output quantity unless THERMAL_EQUILIBRIUM = .FALSE. and HCV < 0'
-            CALL SHUTDOWN_GPYRO(MESSAGE)
-         ENDIF
-         
-         IF (QUANTITY_NAME(I) .EQ. 'HCV') THEN
-            MESSAGE='HCV is not a valid output quantity unless THERMAL_EQUILIBRIUM = .FALSE. and HCV < 0'
-            CALL SHUTDOWN_GPYRO(MESSAGE)
-         ENDIF
-      ENDIF
-
-   ENDDO !IHIBOUND
-ENDDO !ITYPE
-
-DEALLOCATE(QUANTITY_NAME)
-DEALLOCATE(QUANTITY_INDEX)
-
-
-NMESH = GPG%NUM_GPYRO_MESHES
-
-! Check 0D/1D/2D/3D initialization
-DO IMESH = 1, NMESH
-
-   NCELLZ = GPG%NCELLZ(IMESH)
-   NCELLX = GPG%NCELLX(IMESH)
-   NCELLY = GPG%NCELLY(IMESH)
-
-   IF (NCELLZ .EQ. 1 .AND. NCELLX .GT. 1 .AND. NCELLY .EQ. 1) THEN
-      MESSAGE='Error:  For 1D simulations set NCELLY = 1, NCELLX = 1, and NCELLZ > 1'
-      CALL SHUTDOWN_GPYRO(MESSAGE)
-   ENDIF
-   
-   IF (NCELLZ .EQ. 1 .AND. NCELLY .GT. 1 .AND. NCELLX .EQ. 1) THEN
-      MESSAGE='Error:  For 1D simulations set NCELLY = 1, NCELLX = 1, and NCELLZ > 1'
-      CALL SHUTDOWN_GPYRO(MESSAGE)
-   ENDIF
-   
-   IF (NCELLY .GT. 1 .AND. NCELLX .EQ. 1) THEN
-      MESSAGE='Error:  for 2D simulations set NCELLY = 1 and NCELLX > 1'
-      CALL SHUTDOWN_GPYRO(MESSAGE)
-   ENDIF
-ENDDO
-
-
-
-
-
-! Check mesh boundary condition definitions 
-! Face order and names
-FACENAME(1) = 'west (-x)'
-FACENAME(2) = 'east (+x)'
-FACENAME(3) = 'south (-y)'
-FACENAME(4) = 'north (+y)'
-FACENAME(5) = 'top (+z)'
-FACENAME(6) = 'bottom (-z)'
-
-DO IMESH = 1, GPG%NUM_GPYRO_MESHES
-
-   DO IFACE = 1, 6
-
-      ! Skip unused directions depending on mesh dimension
-      IF ( (GPG%NCELLX(IMESH) .LE. 1) .AND. (IFACE == 1 .OR. IFACE == 2) ) CYCLE
-      IF ( (GPG%NCELLY(IMESH) .LE. 1) .AND. (IFACE == 3 .OR. IFACE == 4) ) CYCLE
-      IF ( (GPG%NCELLZ(IMESH) .LE. 1) .AND. (IFACE == 5 .OR. IFACE == 6) ) CYCLE
-
-      BC_IDX= GPG%DEFAULT_SURF_IDX(IMESH, IFACE)
-
-      ! Convert integers to strings
-      WRITE(STR_BCIDX,'(I0)') BC_IDX
-      WRITE(STR_IMESH,'(I0)') IMESH
-      WRITE(STR_FACEIDX, '(I0)') IFACE
-      
-      ! Check if BC index is defined (positive)
-      IF (BC_IDX .LE. 0) THEN
-         MESSAGE = 'Error: Boundary condition not defined for ' // TRIM(FACENAME(IFACE)) // &
-                   ' face of mesh ' // TRIM(STR_IMESH) // &
-                   '. Please set DEFAULT_SURF_IDX('// TRIM(STR_IMESH)//','// TRIM(STR_FACEIDX)// ').'
-
-         CALL SHUTDOWN_GPYRO(MESSAGE)
-      ENDIF
-      
-      ! Check if BC index exists in SURF_IDX list
-      FOUND = .FALSE.
-      DO ISURF = 1, GPG%NSURF_IDX
-         IF (BC_IDX == GPG%ALLBC(ISURF)%SURF_IDX) THEN
-            FOUND = .TRUE.
-            EXIT
-         ENDIF
-      ENDDO
-      
-      IF (.NOT. FOUND) THEN
-         MESSAGE = 'Error: Invalid boundary condition for ' // TRIM(FACENAME(IFACE)) //&
-          ' face of mesh ' // TRIM(STR_IMESH) // &
-          '. The Boundary index ' // TRIM(STR_BCIDX) // ' is not defined.' //&
-          ' Please change DEFAULT_SURF_IDX('// TRIM(STR_IMESH)//','// TRIM(STR_FACEIDX)// ').'
-
-         CALL SHUTDOWN_GPYRO(MESSAGE)
-      ENDIF
-      
-   ENDDO
-
-   ICNUM = GPG%DEFAULT_IC(IMESH)
-
-   ! Convert integers to strings
-   WRITE(STR_BCIDX,'(I0)') ICNUM
-   WRITE(STR_IMESH,'(I0)') IMESH
-   
-   ! Check if BC index is defined (positive)
-   IF (ICNUM .GT. GPG%NIC) THEN
-      MESSAGE = 'Error: Invalid initial condition for mesh ' // TRIM(STR_IMESH) // &
-      '. The initial condition index ' // TRIM(STR_BCIDX) // ' is not defined.' //&
-      ' Please change DEFAULT_IC('// TRIM(STR_IMESH)//').'
-
-     CALL SHUTDOWN_GPYRO(MESSAGE)
-   ENDIF
-
-ENDDO
-
-
-DO IOBST = 1, GPG%NOBST
-   IMESH= GPG%GEOM(IOBST)%IMESH 
-
-   DO IFACE = 1, 6
-
-      ! Skip unused directions depending on mesh dimension
-      IF ( (GPG%NCELLX(IMESH) .LE. 1) .AND. (IFACE == 1 .OR. IFACE == 2) ) CYCLE
-      IF ( (GPG%NCELLY(IMESH) .LE. 1) .AND. (IFACE == 3 .OR. IFACE == 4) ) CYCLE
-      IF ( (GPG%NCELLZ(IMESH) .LE. 1) .AND. (IFACE == 5 .OR. IFACE == 6) ) CYCLE
-
-      BC_IDX= GPG%GEOM(IOBST)%SURF_IDX(IFACE)
-      IF (BC_IDX .LE. 0) CYCLE
-
-
-      ! Convert integers to strings
-      WRITE(STR_BCIDX,'(I0)') BC_IDX
-      WRITE(STR_IMESH,'(I0)') IOBST
-      WRITE(STR_FACEIDX, '(I0)') IFACE
-      ! Check if BC index exists in SURF_IDX list
-      FOUND = .FALSE.
-      DO ISURF = 1, GPG%NSURF_IDX
-         IF (BC_IDX == GPG%ALLBC(ISURF)%SURF_IDX) THEN
-            FOUND = .TRUE.
-            EXIT
-         ENDIF
-      ENDDO
-      
-      IF (.NOT. FOUND) THEN
-         MESSAGE = 'Error: Invalid boundary condition for ' // TRIM(FACENAME(IFACE)) //&
-          ' face of OBST ' // TRIM(STR_IMESH) // &
-          '. The Boundary index ' // TRIM(STR_BCIDX) // ' is not defined.' //&
-          ' Please change SURF_IDX2D('// TRIM(STR_IMESH)//','// TRIM(STR_FACEIDX)// ').'
-
-         CALL SHUTDOWN_GPYRO(MESSAGE)
-      ENDIF
-      
-   ENDDO
-
-
-
-   ICNUM = GPG%GEOM(IOBST)%ICNUM
-   ! Convert integers to strings
-   WRITE(STR_BCIDX,'(I0)') ICNUM
-   WRITE(STR_IMESH,'(I0)') IOBST
-   
-   ! Check if BC index is defined (positive)
-   IF (ICNUM .GT. GPG%NIC) THEN
-      MESSAGE = 'Error: Invalid initial condition for OBST ' // TRIM(STR_IMESH) // &
-      '. The initial condition index ' // TRIM(STR_BCIDX) // ' is not defined.' //&
-      ' Please change ICNUM('// TRIM(STR_IMESH)//').'
-
-     CALL SHUTDOWN_GPYRO(MESSAGE)
-   ENDIF
-
-ENDDO
-
-
-
-
-
-
-
-! Check quantities to dump
-
-! Check point dumps:
-DO I = 1, GPG%N_POINT_QUANTITIES
-   IMESH  = GPG%POINT_IMESH(I)
-   IF (IMESH .EQ. 0) IMESH=1
-   NCELLZ = GPG%NCELLZ(IMESH)
-   NCELLX = GPG%NCELLX(IMESH)
-   NCELLY = GPG%NCELLY(IMESH)
-   ZDIM   = GPG%ZDIM(IMESH) 
-   XDIM   = GPG%XDIM(IMESH) 
-   YDIM   = GPG%YDIM(IMESH) 
-
-   IF (NCELLZ .GT. 1) THEN
-      IF (GPG%POINT_Z(I) .LT. 0. .OR. GPG%POINT_Z(I) .GT. ZDIM) THEN
-         WRITE(THREE,'(I3.3)') I
-         MESSAGE='Error:  Point dump ' // THREE // ' z coordinate is not between 0 and zdim'
-         CALL SHUTDOWN_GPYRO(MESSAGE)
-      ENDIF
-   ENDIF
-
-   IF (NCELLX .GT. 1) THEN
-      IF (GPG%POINT_X(I) .LT. 0. .OR. GPG%POINT_X(I) .GT. XDIM) THEN
-         WRITE(THREE,'(I3.3)') I
-         MESSAGE='Error:  Point dump ' // THREE // ' x coordinate is not between 0 and xdim'
-         CALL SHUTDOWN_GPYRO(MESSAGE)
-      ENDIF
-   ENDIF
-
-   IF (NCELLY .GT. 1) THEN
-      IF (GPG%POINT_Y(I) .LT. 0. .OR. GPG%POINT_Y(I) .GT. YDIM) THEN
-         WRITE(THREE,'(I3.3)') I
-         MESSAGE='Error:  Point dump ' // THREE // ' y coordinate is not between 0 and ydim'
-         CALL SHUTDOWN_GPYRO(MESSAGE)
-      ENDIF
-   ENDIF
-
-ENDDO
-
-! Check profile dumps:
-DO I = 1, GPG%N_PROFILE_QUANTITIES
-   IMESH  = GPG%PROFILE_IMESH(I)
-   IF (IMESH .EQ. 0) IMESH=1
-   NCELLZ = GPG%NCELLZ(IMESH)
-   NCELLX = GPG%NCELLX(IMESH)
-   NCELLY = GPG%NCELLY(IMESH)
-   ZDIM   = GPG%ZDIM(IMESH) 
-   XDIM   = GPG%XDIM(IMESH) 
-   YDIM   = GPG%YDIM(IMESH) 
-
-   IF (GPG%PROFILE_DIRECTION(I) .NE. 'z' .AND. GPG%PROFILE_DIRECTION(I) .NE. 'Z' .AND. & 
-      GPG%PROFILE_DIRECTION(I) .NE. 'x' .AND. GPG%PROFILE_DIRECTION(I) .NE. 'X' .AND. &
-      GPG%PROFILE_DIRECTION(I) .NE. 'y' .AND. GPG%PROFILE_DIRECTION(I) .NE. 'Y') THEN
-      MESSAGE='Error:  For profile dumps, set PROFILE_DIRECTION to one of z, x, or y'
-      CALL SHUTDOWN_GPYRO(MESSAGE)
-   ENDIF
-   IF (GPG%PROFILE_DIRECTION(I) .EQ. 'Z') GPG%PROFILE_DIRECTION(I)='z' 
-   IF (GPG%PROFILE_DIRECTION(I) .EQ. 'X') GPG%PROFILE_DIRECTION(I)='x' 
-   IF (GPG%PROFILE_DIRECTION(I) .EQ. 'Y') GPG%PROFILE_DIRECTION(I)='y'
-
-   IF (GPG%PROFILE_DIRECTION(I) .EQ. 'x' .AND. NCELLX .EQ. 1) THEN
-      MESSAGE='Error:  cannot have x-direction profile dump with one cell in x-direction'
-      CALL SHUTDOWN_GPYRO(MESSAGE)
-   ENDIF
-
-   IF (GPG%PROFILE_DIRECTION(I) .EQ. 'y' .AND. NCELLY .EQ. 1) THEN
-      MESSAGE='Error:  cannot have y-direction profile dump with one cell in y-direction'
-      CALL SHUTDOWN_GPYRO(MESSAGE)
-   ENDIF
-   
-   
-
-   IF (GPG%PROFILE_DIRECTION(I) .EQ. 'z') THEN
-      IF (NCELLX .GT. 1) THEN
-         IF (GPG%PROFILE_COORD1(I) .LT. 0. .OR. GPG%PROFILE_COORD1(I) .GT. XDIM) THEN
-            WRITE(THREE,'(I3.3)') I
-            MESSAGE='Error:  Profile dump ' // THREE // ' x coordinate is not between 0 and xdim'
-            CALL SHUTDOWN_GPYRO(MESSAGE)
-         ENDIF
-      ENDIF
-      IF (NCELLY .GT. 1) THEN
-         IF (GPG%PROFILE_COORD2(I) .LT. 0. .OR. GPG%PROFILE_COORD2(I) .GT. YDIM) THEN
-            WRITE(THREE,'(I3.3)') I
-            MESSAGE='Error:  Profile dump ' // THREE // ' y coordinate is not between 0 and ydim'
-            CALL SHUTDOWN_GPYRO(MESSAGE)
-         ENDIF
-      ENDIF
-   ENDIF
-
-   IF (GPG%PROFILE_DIRECTION(I) .EQ. 'x') THEN
-      IF (NCELLY .GT. 1) THEN
-         IF (GPG%PROFILE_COORD1(I) .LT. 0. .OR. GPG%PROFILE_COORD1(I) .GT. YDIM) THEN
-            WRITE(THREE,'(I3.3)') I
-            MESSAGE='Error:  Profile dump ' // THREE // ' y coordinate is not between 0 and ydim'
-            CALL SHUTDOWN_GPYRO(MESSAGE)
-         ENDIF
-      ENDIF
-      IF (NCELLZ .GT. 1) THEN
-         IF (GPG%PROFILE_COORD2(I) .LT. 0. .OR. GPG%PROFILE_COORD2(I) .GT. ZDIM) THEN
-            WRITE(THREE,'(I3.3)') I
-            MESSAGE='Error:  Profile dump ' // THREE // ' z coordinate is not between 0 and zdim'
-            CALL SHUTDOWN_GPYRO(MESSAGE)
-         ENDIF
-      ENDIF
-   ENDIF
-
-   IF (GPG%PROFILE_DIRECTION(I) .EQ. 'y') THEN
-      IF (NCELLX .GT. 1) THEN
-         IF (GPG%PROFILE_COORD1(I) .LT. 0. .OR. GPG%PROFILE_COORD1(I) .GT. XDIM) THEN
-            WRITE(THREE,'(I3.3)') I
-            MESSAGE='Error:  Profile dump ' // THREE // ' x coordinate is not between 0 and xdim'
-            CALL SHUTDOWN_GPYRO(MESSAGE)
-         ENDIF
-      ENDIF
-      IF (NCELLZ .GT. 1) THEN
-         IF (GPG%PROFILE_COORD2(I) .LT. 0. .OR. GPG%PROFILE_COORD2(I) .GT. ZDIM) THEN
-            WRITE(THREE,'(I3.3)') I
-            MESSAGE='Error:  Profile dump ' // THREE // ' z coordinate is not between 0 and zdim'
-            CALL SHUTDOWN_GPYRO(MESSAGE)
-         ENDIF
-      ENDIF
-   ENDIF
-
-ENDDO
-
-!Check Smokeview dumps:
-DO N = 1, GPG%N_SMOKEVIEW_QUANTITIES
-   IMESH  = GPG%SMOKEVIEW_IMESH(N)
-   IF (IMESH .EQ. 0) IMESH=1
-   NCELLZ = GPG%NCELLZ(IMESH)
-   NCELLX = GPG%NCELLX(IMESH)
-   NCELLY = GPG%NCELLY(IMESH)
-   ZDIM   = GPG%ZDIM(IMESH) 
-   XDIM   = GPG%XDIM(IMESH) 
-   YDIM   = GPG%YDIM(IMESH) 
-   IF (GPG%SMOKEVIEW_PLANE(N) .EQ. 'xz' .OR. GPG%SMOKEVIEW_PLANE(N) .EQ. 'XZ' .OR. &
-         GPG%SMOKEVIEW_PLANE(N) .EQ. 'zx' .OR. GPG%SMOKEVIEW_PLANE(N) .EQ. 'ZX') THEN !y=const plane
-      GPG%SMOKEVIEW_PLANE(N)='xz'
-   ENDIF
-
-   IF (GPG%SMOKEVIEW_PLANE(N) .EQ. 'yz' .OR. GPG%SMOKEVIEW_PLANE(N) .EQ. 'YZ' .OR. &
-         GPG%SMOKEVIEW_PLANE(N) .EQ. 'zy' .OR. GPG%SMOKEVIEW_PLANE(N) .EQ. 'ZY') THEN !x=const plane
-      GPG%SMOKEVIEW_PLANE(N)='yz'   
-   ENDIF
-
-   IF (GPG%SMOKEVIEW_PLANE(N) .EQ. 'xy' .OR. GPG%SMOKEVIEW_PLANE(N) .EQ. 'XY' .OR. &
-      GPG%SMOKEVIEW_PLANE(N) .EQ. 'yx' .OR. GPG%SMOKEVIEW_PLANE(N) .EQ. 'YX') THEN !z=const plane
-      GPG%SMOKEVIEW_PLANE(N)='xy'
-   ENDIF
-
-   IF (GPG%SMOKEVIEW_PLANE(N) .NE. 'xz' .AND. GPG%SMOKEVIEW_PLANE(N) .NE. 'yz' .AND. GPG%SMOKEVIEW_PLANE(N) .NE. 'xy') THEN
-      MESSAGE='Error:  For Smokeview output, set SMOKEVIEW_PLANE to one of xy, yz, or xz'
-      CALL SHUTDOWN_GPYRO(MESSAGE)
-   ENDIF
-
-   IF (GPG%SMOKEVIEW_PLANE(N) .EQ. 'xz') THEN
-      IF (NCELLZ .EQ. 1 .OR. NCELLX .EQ. 1) THEN
-         MESSAGE='Error:  Cannot have xz SMOKEVIEW_PLANE with only one cell in x or z direction'
-         CALL SHUTDOWN_GPYRO(MESSAGE)
-      ENDIF
-   ENDIF
-
-   IF (GPG%SMOKEVIEW_PLANE(N) .EQ. 'xy') THEN
-      IF (NCELLX .EQ. 1 .OR. NCELLY .EQ. 1) THEN
-         MESSAGE='Error:  Cannot have xy SMOKEVIEW_PLANE with only one cell in x or y direction'
-         CALL SHUTDOWN_GPYRO(MESSAGE)
-      ENDIF
-   ENDIF
-
-   IF (GPG%SMOKEVIEW_PLANE(N) .EQ. 'yz') THEN
-      IF (NCELLY .EQ. 1 .OR. NCELLZ .EQ. 1) THEN
-         MESSAGE='Error:  Cannot have yz SMOKEVIEW_PLANE with only one cell in y or z direction'
-         CALL SHUTDOWN_GPYRO(MESSAGE)
-      ENDIF
-   ENDIF
-      
-ENDDO
-
-
-
-DO ICASE = 1, GPG%NCASES
-   IMESH  = GPG%IMESH (ICASE)
-   NCELLZ = GPG%NCELLZ(IMESH)
-   NCELLX = GPG%NCELLX(IMESH)
-   NCELLY = GPG%NCELLY(IMESH)
-   IF(GPG%ZEROD(ICASE) .AND. (NCELLX .GT. 1 .OR. NCELLY .GT. 1 .OR. NCELLZ .GT. 1)) THEN
-      MESSAGE='Error:  For meshes corresponding to cases where ZEROD=.TRUE., ensure that NCELLZ=NCELLX=NCELLY=1.'
-      CALL SHUTDOWN_GPYRO(MESSAGE)
-   ENDIF
-ENDDO
-
-DO ISPEC = 1, GPROP%NGSPEC
-   IF (TRIM(GPROP%NAME(ISPEC)) .EQ. 'null') THEN
-      MESSAGE='Error:  Ensure all gaseous species are defined (and check that # of defined species matches NGSPEC)'
-      CALL SHUTDOWN_GPYRO(MESSAGE)
-   ENDIF
-ENDDO
-
-IF (GPROP%NHGRXN .GT. 0) THEN
-   IF ( (.NOT. GPG%SOLVE_GAS_ENERGY) ) THEN
-      MESSAGE='Set SOLVE_GAS_ENERGY = .TRUE. when using homogeneous gaseous reactions (NHGRXN > 0).'
-      CALL SHUTDOWN_GPYRO(MESSAGE)
-   ENDIF
-ENDIF
-
-IF (GPG%SOLVE_GAS_ENERGY .AND. (.NOT. GPG%SOLVE_POROSITY)) THEN
-   MESSAGE = 'Error: SOLVE_GAS_ENERGY requires porosity to be resolved.' // NEW_LINE('A') // &
-             'Porosity can only be computed if the pure solid density RS0 of at least one ' // &
-             'condensed species is defined and different from its bulk density R0.'
-   CALL SHUTDOWN_GPYRO(MESSAGE)
-ENDIF
-
-IF (GPG%SOLVE_GAS_YJ .AND. (.NOT. GPG%SOLVE_POROSITY)) THEN
-   MESSAGE = 'Error: SOLVE_GAS_YJ requires porosity to be resolved.' // NEW_LINE('A') // &
-             'Porosity can only be computed if the pure solid density RS0 of at least one ' // &
-             'condensed species is defined and different from its bulk density R0.'
-   CALL SHUTDOWN_GPYRO(MESSAGE)
-ENDIF
-
-IF (GPG%SOLVE_PRESSURE .AND. (.NOT. GPG%SOLVE_POROSITY)) THEN
-   MESSAGE = 'Error: SOLVE_PRESSURE requires porosity to be resolved.' // NEW_LINE('A') // &
-             'Porosity can only be computed if the pure solid density RS0 of at least one ' // &
-             'condensed species is defined and different from its bulk density R0.'
-   CALL SHUTDOWN_GPYRO(MESSAGE)
-ENDIF
-
-IF (GPG%THERMAL_EQUILIBRIUM .AND. GPG%FULL_QSG .AND. (.NOT. GPG%SOLVE_POROSITY)) THEN
-   MESSAGE = 'Error: THERMAL_EQUILIBRIUM with FULL_QSG requires porosity to be resolved.' // NEW_LINE('A') // &
-             'Porosity can only be computed if the pure solid density RS0 of at least one ' // &
-             'condensed species is defined and different from its bulk density R0.'
-   CALL SHUTDOWN_GPYRO(MESSAGE)
-ENDIF
-
-! Check initial condensed-phase species mass fractions:
-DO ICINDEX = 1, GPG%NIC
-   SUMVAL = 0D0
-   DO I = 1, SPROP%NSSPEC
-      SUMVAL = SUMVAL + GPG%INITIAL_CONDITIONS(ICINDEX)%YI0(I)
-   ENDDO
-   IF (SUMVAL .LT. 0.999999 .OR. SUMVAL .GT. 1.000001) THEN
-      WRITE(THREE,'(I3.3)') ICINDEX
-      MESSAGE='Initial condensed-phase mass fractions do not sum to 1.0 for IC ' // THREE // &
-              '. Check IC worksheet and make sure you have specified initial conditions for all condensed-phase species.'
-      CALL SHUTDOWN_GPYRO(MESSAGE)
-   ENDIF
-
-ENDDO
-
-DO I = 1, GPG%NSURF_IDX
-   SUMVAL = 0D0
-   DO J = 1, GPROP%NGSPEC   
-      SUMVAL = SUMVAL + GPG%ALLBC(I)%YJINF(J)
-   ENDDO
-   IF (SUMVAL .LT. 0.999999 .OR. SUMVAL .GT. 1.000001) THEN
-      WRITE(THREE,'(I3.3)') I
-      MESSAGE='Problem with gaseous species boundary condition # ' // THREE // '. Mass fractions do not sum to 1.0'
-      CALL SHUTDOWN_GPYRO(MESSAGE)
-   ENDIF
-ENDDO
-
-
-
-
-GPG%NEED_GAS_YJ = GPG%SOLVE_GAS_YJ  ! If the user specified to solve gas YJ, then it is of course needed
-
-DO IRXN = 1, SPROP%NRXN
-   DO J = 1, GPROP%NGSPEC
-      IF (GPROP%YIELDS(J, IRXN) .LT. 0D0) THEN
-         ! That means a gaseous species is consumed, so the gas mass fraction is needed
-         GPG%NEED_GAS_YJ = .TRUE.
-      END IF
-   ENDDO
-ENDDO
-
-
-DO IRXN = 1, SPROP%NRXN
-   SUMVAL = 0D0
-   DO J = 1, GPROP%NGSPEC
-      SUMVAL = SUMVAL + GPROP%YIELDS(J,IRXN)
-   ENDDO
-   IF (SUMVAL .LT. 0.999999 .OR. SUMVAL .GT. 1.000001) THEN
-      WRITE(TWO,'(I2.2)') IRXN
-      MESSAGE='Be careful. Gaseous yields for heterogeneous reaction ' // TWO // ' do not sum to unity.'
-      CALL SHUTDOWN_GPYRO(MESSAGE) ! This can be commented out to circumvent this
-      IF (RXN(IRXN)%CHI .LT. SPROP%R0(1) / (SPROP%R0(1) - SPROP%R0(2) ) ) THEN
-         WRITE(TWO,'(I2.2)') IRXN
-         MESSAGE='Error: CHI value for heterogeneous reaction ' // TWO // ' is lower than possible for a condensation reaction.'
-         CALL SHUTDOWN_GPYRO(MESSAGE) !This can be commented out to circumvent this 
-      ENDIF
-   ENDIF
-ENDDO
-
-DO IRXN = 1, GPROP%NHGRXN
-   SUMVAL = 0D0
-   DO J = 1, GPROP%NGSPEC
-      SUMVAL = SUMVAL + GPROP%HGYIELDS(J,IRXN)
-   ENDDO
-   IF (SUMVAL .LT. -0.000001 .OR. SUMVAL .GT. 0.000001) THEN
-      WRITE(TWO,'(I2.2)') IRXN
-      MESSAGE='Problem with gaseous yields for homogeneous gaseous reaction ' // TWO // '. Yields do not sum to 1.0'
-      CALL SHUTDOWN_GPYRO(MESSAGE)
-   ENDIF
-ENDDO
-
-
-! Check initial gas-phase species mass fractions:
-IF (GPG%NEED_GAS_YJ) THEN
-   DO ICINDEX = 1, GPG%NIC
-      SUMVAL = 0D0
-      DO J = 1, GPROP%NGSPEC
-         SUMVAL = SUMVAL + GPG%INITIAL_CONDITIONS(ICINDEX)%YJ0(J)
-      ENDDO
-      IF (SUMVAL .LT. 0.999999 .OR. SUMVAL .GT. 1.000001) THEN
-         WRITE(THREE,'(I3.3)') ICINDEX
-         MESSAGE='Initial gas-phase mass fractions do not sum to 1.0 for ICNUM ' // THREE // &
-               '. Check IC worksheet and make sure you have specified initial conditions for all gas-phase species.'
-         CALL SHUTDOWN_GPYRO(MESSAGE)
-      ENDIF
-   ENDDO
-ENDIF
-
-IF (GPG%FDSMODE) THEN
-   IF (GPG%FDS_MATL_VER .NE. 5 .AND. GPG%FDS_MATL_VER .NE. 6) THEN
-      MESSAGE='Error, when FDSMODE=.TRUE., set FDS_MATL_VER to either 5 or 6'
-      CALL SHUTDOWN_GPYRO(MESSAGE)
-   ENDIF   
-ENDIF
-
-! Warnings
-IF (IRANK .EQ. 0 .AND. (.NOT. GPG%SHYI_CORRECTION)) THEN
-   DO I = 1, SPROP%NSSPEC
-      IF (SPROP%C0(I) .NE. SPROP%C0(1) .OR. SPROP%NC(I) .NE. SPROP%NC(1) ) THEN
-         WRITE(*,*) '***** WARNING ***** '
-         WRITE(*,*) 'If different solid species have different specific heat capacities '
-         WRITE(*,*) 'Then Gpyro should be run with GPG%SHYI_CORRECTION = .TRUE. '
-         WRITE(*,*)
-      ENDIF   
-   ENDDO
-ENDIF
-
-IF (IRANK .EQ. 0 .AND. GPG%EXPLICIT_T) THEN
-   WRITE(*,*) '***** WARNING ***** '
-   WRITE(*,*) 'Gpyro is an implicit code.' 
-   WRITE(*,*) 'Setting EXPLICIT_T = .TRUE. should be used with caution.'
-   WRITE(*,*)
-ENDIF
-
-IF (IRANK .EQ. 0 .AND. GPG%FDSMODE) THEN
-   WRITE(*,*) '***** WARNING ***** '
-   WRITE(*,*) 'Gpyro is running in FDS mode.' 
-   WRITE(*,*) "Be sure to check Gpyro's .out file as some defaults are different in FDS mode."
-   WRITE(*,*)
-ENDIF
-
 !******************************************************************************
-END SUBROUTINE CHECK_GPYRO
-!******************************************************************************	
-
-!******************************************************************************	
 SUBROUTINE DEALLOCATE_GPYRO
-!******************************************************************************	
+!******************************************************************************
 
 IF (ALLOCATED(GPM   )) DEALLOCATE(GPM   )
 
-!******************************************************************************	
+!******************************************************************************
 END SUBROUTINE DEALLOCATE_GPYRO
-!******************************************************************************	
+!******************************************************************************
 
-!******************************************************************************	
+!******************************************************************************
 SUBROUTINE ALLOCATE_GPYRO(IMESH)
-!******************************************************************************	
+!******************************************************************************
 
 INTEGER, INTENT(IN) :: IMESH
 INTEGER :: NGSPEC,NSSPEC,NRXN,NHGRXN
-INTEGER :: IZ, IX, IY, IOR ,I, STR_SIZE
-
-INTEGER :: NCELLZ 
-INTEGER :: NCELLX 
-INTEGER :: NCELLY
+INTEGER :: I, STR_SIZE
+INTEGER :: NCELLZ, NCELLX , NCELLY
+TYPE (GPYRO_MESH_TYPE), POINTER :: M
 
 IF (.NOT. ALLOCATED (GPM)) ALLOCATE(GPM(GPG%NUM_GPYRO_MESHES))
 
@@ -1012,20 +44,9 @@ G => GPM(IMESH)
 ! This is ALLOCATABLE (not POINTER) so if it's already allocated then we've already done
 ! this mesh so return
 IF (ALLOCATED(G%CONV_INFO%CONVERGED_YIS)) RETURN
-G%NCELLZ = GPG%NCELLZ(IMESH)
-G%NCELLX = GPG%NCELLX(IMESH)
-G%NCELLY = GPG%NCELLY(IMESH)
-G%HALF_CELLS_AT_BC = GPG%HALF_CELLS_AT_BC(IMESH)
-IF (.NOT. G%HALF_CELLS_AT_BC ) THEN
-   ! If the cell at the boundary is a complete cell, add 2 ghost cells at the edge.
-   IF (G%NCELLZ .NE. 1) G%NCELLZ = G%NCELLZ +2
-   IF (G%NCELLX .NE. 1) G%NCELLX = G%NCELLX +2
-   IF (G%NCELLY .NE. 1) G%NCELLY = G%NCELLY +2
-ENDIF
 
-G%ZDIM = GPG%ZDIM(IMESH); IF (G%NCELLZ .EQ. 1) G%ZDIM = 1.
-G%XDIM = GPG%XDIM(IMESH); IF (G%NCELLX .EQ. 1) G%XDIM = 1.
-G%YDIM = GPG%YDIM(IMESH); IF (G%NCELLY .EQ. 1) G%YDIM = 1.
+CALL ALLOCATE_MESH(IMESH)
+M => G%MESH
 
 !Allocate NGPYRO_FACES_NEEDING_BCS
 IF (.NOT. ALLOCATED (NGPYRO_FACES_NEEDING_BCS) ) THEN 
@@ -1039,46 +60,32 @@ G%GY = GPG%GY
 G%GZ = GPG%GZ
 
 IF (IGPYRO_TYPE .EQ. 2) THEN !FDS
-   G%MESH_CENTROIDS(1:3) = GPG%MESH_CENTROIDS (IMESH,1:3)
-   G%MESH_EXTENTS  (1:3) = GPG%MESH_EXTENTS   (IMESH,1:3)
+   M%MESH_CENTROIDS(1:3) = GPG%MESH_CENTROIDS (IMESH,1:3)
+   M%MESH_EXTENTS  (1:3) = GPG%MESH_EXTENTS   (IMESH,1:3)
 
-   G%MESH_LL(1:3) = G%MESH_CENTROIDS(1:3) - 0.5D0 * G%MESH_EXTENTS(1:3)
+   M%MESH_LL(1:3) = M%MESH_CENTROIDS(1:3) - 0.5D0 * M%MESH_EXTENTS(1:3)
    
    !Set x0, y0, z0:
-   G%X0 = G%MESH_LL(1)
-   G%Y0 = G%MESH_LL(2)
-   G%Z0 = G%MESH_LL(3)
+   M%X0 = M%MESH_LL(1)
+   M%Y0 = M%MESH_LL(2)
+   M%Z0 = M%MESH_LL(3)
 ELSE
    !Set x0, y0, z0:
-   G%X0 = 0D0
-   G%Y0 = 0D0
-   G%Z0 = 0D0
+   M%X0 = 0D0
+   M%Y0 = 0D0
+   M%Z0 = 0D0
 ENDIF
 
-NCELLZ = G%NCELLZ
-NCELLX = G%NCELLX
-NCELLY = G%NCELLY
+NCELLZ = M%NCELLZ
+NCELLX = M%NCELLX
+NCELLY = M%NCELLY
 
 NGSPEC = GPROP%NGSPEC
 NSSPEC = SPROP%NSSPEC
 NRXN   = SPROP%NRXN
 NHGRXN = GPROP%NHGRXN
 
-G%DIMENSION = 0
-IF (NCELLZ .GT.1 ) G%DIMENSION = G%DIMENSION +1
-IF (NCELLX .GT.1 ) G%DIMENSION = G%DIMENSION +1
-IF (NCELLY .GT.1 ) G%DIMENSION = G%DIMENSION +1
-
-!Allow deformation only in 1D
-IF (G%DIMENSION .LE. 1) G%DEFORMATION = .TRUE.
-IF (G%DIMENSION .GT. 1) G%DEFORMATION = .FALSE.
-
 !For extension to 3D, consolidate all directional (x,y,z) quantities here:
-
-!Coordinates in z, x, and y directions:
-ALLOCATE (G%Z(1:NCELLZ) ); G%Z=0D0
-ALLOCATE (G%X(1:NCELLX) ); G%X=0D0
-ALLOCATE (G%Y(1:NCELLY) ); G%Y=0D0
 
 ALLOCATE (G%FT(1:NCELLZ,1:NCELLX,1:NCELLY) ); G%FT=0D0
 ALLOCATE (G%FB(1:NCELLZ,1:NCELLX,1:NCELLY) ); G%FB=0D0
@@ -1094,37 +101,9 @@ ALLOCATE(G%NEEDSBCE(1:NCELLZ,1:NCELLX,1:NCELLY)); G%NEEDSBCE(:,:,:) = .FALSE.
 ALLOCATE(G%NEEDSBCS(1:NCELLZ,1:NCELLX,1:NCELLY)); G%NEEDSBCS(:,:,:) = .FALSE.
 ALLOCATE(G%NEEDSBCN(1:NCELLZ,1:NCELLX,1:NCELLY)); G%NEEDSBCN(:,:,:) = .FALSE.
 
-ALLOCATE(G%SURF_IDX_BCT(1:NCELLZ,1:NCELLX,1:NCELLY)); G%SURF_IDX_BCT(:,:,:) = -1
-ALLOCATE(G%SURF_IDX_BCB(1:NCELLZ,1:NCELLX,1:NCELLY)); G%SURF_IDX_BCB(:,:,:) = -1
-ALLOCATE(G%SURF_IDX_BCW(1:NCELLZ,1:NCELLX,1:NCELLY)); G%SURF_IDX_BCW(:,:,:) = -1
-ALLOCATE(G%SURF_IDX_BCE(1:NCELLZ,1:NCELLX,1:NCELLY)); G%SURF_IDX_BCE(:,:,:) = -1
-ALLOCATE(G%SURF_IDX_BCS(1:NCELLZ,1:NCELLX,1:NCELLY)); G%SURF_IDX_BCS(:,:,:) = -1
-ALLOCATE(G%SURF_IDX_BCN(1:NCELLZ,1:NCELLX,1:NCELLY)); G%SURF_IDX_BCN(:,:,:) = -1
-
 
 CALL ALLOCATE_MEMORY_FOR_FIELD(IMESH, NCELLZ, NCELLX, NCELLY, NSSPEC, NGSPEC)
 CALL ASSIGN_FIELD_TO_MEMORY
-
-!Grid size in z, x, and y directions (current and "next"):
-
-ALLOCATE (G%DLTX(1:NCELLZ,1:NCELLX,1:NCELLY) ); G%DLTX=1D0
-ALLOCATE (G%DLTY(1:NCELLZ,1:NCELLX,1:NCELLY) ); G%DLTY=1D0
-
-!ALLOCATE (G%DLTXN(1:NCELLZ,1:NCELLX,1:NCELLY) ); G%DLTXN=1D0
-!ALLOCATE (G%DLTYN(1:NCELLZ,1:NCELLX,1:NCELLY) ); G%DLTYN=1D0
-
-ALLOCATE (G%DXDY  (1:NCELLZ,1:NCELLX,1:NCELLY) ); G%DXDY  =1D0
-ALLOCATE (G%DXDZ  (1:NCELLZ,1:NCELLX,1:NCELLY) ); G%DXDZ  =1D0
-ALLOCATE (G%DYDZ  (1:NCELLZ,1:NCELLX,1:NCELLY) ); G%DYDZ  =1D0
-ALLOCATE (G%DV(1:NCELLZ,1:NCELLX,1:NCELLY) ); G%DV=1D0
-
-!Distance between cell centers in z, x, and y directions
-ALLOCATE (G%DZT  (1:NCELLZ,1:NCELLX,1:NCELLY) ); G%DZT=9D9 !Delta-z (top)
-ALLOCATE (G%DZB  (1:NCELLZ,1:NCELLX,1:NCELLY) ); G%DZB=9D9 !Delta-z (bottom)
-ALLOCATE (G%DXE  (1:NCELLZ,1:NCELLX,1:NCELLY) ); G%DXE=9D9 !Delta-x (east)
-ALLOCATE (G%DXW  (1:NCELLZ,1:NCELLX,1:NCELLY) ); G%DXW=9D9 !Delta-x (west)
-ALLOCATE (G%DYN  (1:NCELLZ,1:NCELLX,1:NCELLY) ); G%DYN=9D9 !Delta-y (north)
-ALLOCATE (G%DYS  (1:NCELLZ,1:NCELLX,1:NCELLY) ); G%DYS=9D9 !Delta-y (south)
 
 ALLOCATE (G%KZ    (1:NCELLZ,1:NCELLX,1:NCELLY) ); G%KZ=0D0
 ALLOCATE (G%KX    (1:NCELLZ,1:NCELLX,1:NCELLY) ); G%KX=0D0
@@ -1202,6 +181,8 @@ ALLOCATE (G%INDICE_OF_BC_GAS_OUT(1:NCELLZ,1:NCELLX,1:NCELLY) ); G%INDICE_OF_BC_G
 
 !z-direction mass flux, calculated from continuity:
 ALLOCATE (G%MDOTPPZ(0:NGSPEC,1:NCELLZ,1:NCELLX,1:NCELLY) ); G%MDOTPPZ=0D0
+ALLOCATE (G%MDOTPPZT(1:NCELLZ,1:NCELLX,1:NCELLY) ); G%MDOTPPZT=0D0 ! Mass Flux z Top
+ALLOCATE (G%MDOTPPZB(1:NCELLZ,1:NCELLX,1:NCELLY) ); G%MDOTPPZB=0D0 ! Mass Flux z Bottom
 
 IF (GPG%SOLVE_GAS_YJ .OR. GPG%SOLVE_PRESSURE) THEN
    ALLOCATE (G%PSIRGDT(1:NCELLZ,1:NCELLX,1:NCELLY) ); G%PSIRGDT=0D0
@@ -1233,7 +214,7 @@ ALLOCATE (G%OMEGASFG(1:NCELLZ,1:NCELLX,1:NCELLY) ); G%OMEGASFG=0D0
 ALLOCATE (G%OMSOLIDFRAC(1:NRXN,1:NCELLZ,1:NCELLX,1:NCELLY) ); G%OMSOLIDFRAC=0D0
 
 ALLOCATE (G%HI      (1:NSSPEC,1:NCELLZ,1:NCELLX,1:NCELLY) ); G%HI=0D0
-ALLOCATE (G%RYIDZ0  (0:NSSPEC,1:NCELLZ,1:NCELLX,1:NCELLY) ); G%RYIDZ0=0D0
+ALLOCATE (G%INITIAL_MASS  (0:NSSPEC,1:NCELLZ,1:NCELLX,1:NCELLY) ); G%INITIAL_MASS=0D0
    
 ALLOCATE (G%UNREACTEDNESS(1:NSSPEC,1:NCELLZ,1:NCELLX,1:NCELLY) ); G%UNREACTEDNESS=1D0
             
@@ -1255,15 +236,9 @@ ALLOCATE (G%IS_REACTING(0:NRXN,1:NCELLZ,1:NCELLX,1:NCELLY));G%IS_REACTING=.FALSE
 ALLOCATE (G%OMEGAGDJL(1:NGSPEC,1:NHGRXN,1:NCELLZ,1:NCELLX,1:NCELLY)); G%OMEGAGDJL=0D0
                         
 ALLOCATE (G%QSG       (1:NCELLZ,1:NCELLX,1:NCELLY));G%QSG=0D0
+ALLOCATE (G%QSC       (1:NCELLZ,1:NCELLX,1:NCELLY));G%QSC=0D0
+ALLOCATE (G%QSBC      (1:NCELLZ,1:NCELLX,1:NCELLY));G%QSBC=0D0
 ALLOCATE (G%CONSUMED  (1:NCELLZ,1:NCELLX,1:NCELLY));G%CONSUMED=.FALSE.
-
-ALLOCATE(G%IMASK(1:NCELLZ,1:NCELLX,1:NCELLY) ); G%IMASK= .FALSE.
-            
-
-IF (GPG%NEED_GAS_YJ) THEN               
-   ALLOCATE (G%YJG     (1:NGSPEC,1:NCELLZ,1:NCELLX,1:NCELLY) ); G%YJG=0D0
-   ALLOCATE (G%YJGN    (1:NGSPEC,1:NCELLZ,1:NCELLX,1:NCELLY) ); G%YJGN=0D0
-ENDIF
 
 IF (GPG%SOLVE_GAS_ENERGY) THEN
    ALLOCATE (G%SHGP   (1:NCELLZ,1:NCELLX,1:NCELLY) ); G%SHGP=0D0
@@ -1294,48 +269,6 @@ IF (NCELLZ .EQ. 1 .AND. (.NOT. GPG%NEED_GAS_YJ) ) THEN
    ALLOCATE (G%YJG     (1:NGSPEC,1:NCELLZ,1:NCELLX,1:NCELLY) ); G%YJG=0D0
    ALLOCATE (G%YJGN    (1:NGSPEC,1:NCELLZ,1:NCELLX,1:NCELLY) ); G%YJGN=0D0
 ENDIF
-
-!Zero arrays for applying boundary conditions:
-ALLOCATE(G%GPYRO_BOUNDARY_CONDITION(1:NCELLZ,1:NCELLX,1:NCELLY,-3:3))
-
-GPBCP(1:,1:,1:,-3:)=>G%GPYRO_BOUNDARY_CONDITION(1:NCELLZ,1:NCELLX,1:NCELLY,-3:3)
-
-GPBCP(:,:,:,:)%QE           = 0D0
-GPBCP(:,:,:,:)%QENET        = 0D0
-GPBCP(:,:,:,:)%HC0          = 12D0
-GPBCP(:,:,:,:)%NHC          = 0D0
-GPBCP(:,:,:,:)%TINF         = GPG%TAMB
-GPBCP(:,:,:,:)%TFIXED       = -1000D0
-GPBCP(:,:,:,:)%HFIXED       = 0D0
-GPBCP(:,:,:,:)%PRES         = GPG%P0
-GPBCP(:,:,:,:)%MFLUX        = 0D0
-GPBCP(:,:,:,:)%HM0          = 0.012D0
-GPBCP(:,:,:,:)%QEG          = 0D0
-GPBCP(:,:,:,:)%HC0G         = 12D0
-GPBCP(:,:,:,:)%TINFG        = GPG%TAMB
-GPBCP(:,:,:,:)%TFIXEDG      = -1000D0
-GPBCP(:,:,:,:)%HFIXEDG      = 0D0
-GPBCP(:,:,:,:)%RERAD        = .FALSE.
-GPBCP(:,:,:,:)%EMISSIVITY   = 0D0
-GPBCP(:,:,:,:)%T_SURFACE    = GPG%TAMB
-GPBCP(:,:,:,:)%T_SURFACE_OLD= GPG%TAMB
-GPBCP(:,:,:,:)%QRADOUT      = 0D0
-GPBCP(:,:,:,:)%QCONF        = 0D0
-
-DO IZ = 1, NCELLZ
-DO IX = 1, NCELLX
-DO IY = 1, NCELLY
-DO IOR =-3, 3
-   ALLOCATE(G%GPYRO_BOUNDARY_CONDITION(IZ,IX,IY,IOR)%YJINF   (1:GPROP%NGSPEC))
-   G%GPYRO_BOUNDARY_CONDITION(IZ,IX,IY,IOR)%YJINF   (1:GPROP%NGSPEC) = 0D0
-   ALLOCATE(G%GPYRO_BOUNDARY_CONDITION(IZ,IX,IY,IOR)%MASSFLUX(1:GPROP%NGSPEC))
-   G%GPYRO_BOUNDARY_CONDITION(IZ,IX,IY,IOR)%MASSFLUX(1:GPROP%NGSPEC) = 0D0
-   ALLOCATE(G%GPYRO_BOUNDARY_CONDITION(IZ,IX,IY,IOR)%MLR     (1:GPROP%NGSPEC))
-   G%GPYRO_BOUNDARY_CONDITION(IZ,IX,IY,IOR)%MLR     (1:GPROP%NGSPEC) = 0D0
-ENDDO
-ENDDO
-ENDDO
-ENDDO
 
 ALLOCATE(G%RWORK01(1:NCELLZ,1:NCELLX,1:NCELLY)); G%RWORK01=0D0
 ALLOCATE(G%RWORK02(1:NCELLZ,1:NCELLX,1:NCELLY)); G%RWORK02=0D0
@@ -1409,7 +342,7 @@ ALLOCATE(G%LWORK01(1:NCELLZ,1:NCELLX,1:NCELLY)); G%LWORK01=.FALSE.
 
 ALLOCATE(G%WORK_DUMP(GPG%N_PROFILE_QUANTITIES))
 DO I = 1, GPG%N_PROFILE_QUANTITIES
-   STR_SIZE= MAX(G%NCELLX,G%NCELLY,G%NCELLZ)+1
+   STR_SIZE= MAX(NCELLX,NCELLY,NCELLZ)+1
    ALLOCATE(G%WORK_DUMP(I)%BUFFER(STR_SIZE))
    ALLOCATE(CHARACTER(STR_SIZE * 20) :: G%WORK_DUMP(I)%LINE)
 ENDDO
@@ -1420,81 +353,180 @@ ALLOCATE(G%CONV_INFO%CONVERGED_YJG(0:NGSPEC))
 ALLOCATE(G%CONV_INFO%ITER_YIS(0:NSSPEC))
 ALLOCATE(G%CONV_INFO%ITER_YJG(0:NGSPEC))
 
-!******************************************************************************	
+!******************************************************************************
 END SUBROUTINE ALLOCATE_GPYRO
-!******************************************************************************	
+!******************************************************************************
 
-!******************************************************************************	
+!******************************************************************************
 SUBROUTINE ALLOCATE_GPYRO_BOUNDARYS_INFO(NMESHES,IMESH,IDIM)
-!******************************************************************************	
+!******************************************************************************
 
 INTEGER, INTENT(IN) :: NMESHES, IMESH, IDIM
 INTEGER :: ICOUNT !, LUSIZE
+TYPE (GPYRO_BOUNDARYS_INFORMATION), POINTER :: BOUNDARYS
 
 IF (.NOT. ALLOCATED(GP_BOUDARYS)) ALLOCATE (GP_BOUDARYS(0:NMESHES))
 
-ALLOCATE (GP_BOUDARYS(IMESH)%IMESH_GPYRO(1:IDIM)); GP_BOUDARYS(IMESH)%IMESH_GPYRO(:) = 0
-ALLOCATE (GP_BOUDARYS(IMESH)%IZ_GPYRO   (1:IDIM)); GP_BOUDARYS(IMESH)%IZ_GPYRO   (:) = 0
-ALLOCATE (GP_BOUDARYS(IMESH)%IX_GPYRO   (1:IDIM)); GP_BOUDARYS(IMESH)%IX_GPYRO   (:) = 0
-ALLOCATE (GP_BOUDARYS(IMESH)%IY_GPYRO   (1:IDIM)); GP_BOUDARYS(IMESH)%IY_GPYRO   (:) = 0
-ALLOCATE (GP_BOUDARYS(IMESH)%IOR_GPYRO  (1:IDIM)); GP_BOUDARYS(IMESH)%IOR_GPYRO  (:) = 0
-ALLOCATE (GP_BOUDARYS(IMESH)%IOR_FDS    (1:IDIM)); GP_BOUDARYS(IMESH)%IOR_FDS    (:) = 0
-ALLOCATE (GP_BOUDARYS(IMESH)%IMESH_FDS  (1:IDIM)); GP_BOUDARYS(IMESH)%IMESH_FDS  (:) = 0
-ALLOCATE (GP_BOUDARYS(IMESH)%I_FDS      (1:IDIM)); GP_BOUDARYS(IMESH)%I_FDS      (:) = 0
-ALLOCATE (GP_BOUDARYS(IMESH)%J_FDS      (1:IDIM)); GP_BOUDARYS(IMESH)%J_FDS      (:) = 0
-ALLOCATE (GP_BOUDARYS(IMESH)%K_FDS      (1:IDIM)); GP_BOUDARYS(IMESH)%K_FDS      (:) = 0
-ALLOCATE (GP_BOUDARYS(IMESH)%IW_FDS     (1:IDIM)); GP_BOUDARYS(IMESH)%IW_FDS     (:) = 0
-ALLOCATE (GP_BOUDARYS(IMESH)%RATIO      (1:IDIM)); GP_BOUDARYS(IMESH)%RATIO      (:) = 0
-ALLOCATE (GP_BOUDARYS(IMESH)%DIFF       (1:IDIM)); GP_BOUDARYS(IMESH)%DIFF       (:) = 9D9
-ALLOCATE (GP_BOUDARYS(IMESH)%XDIFF      (1:IDIM)); GP_BOUDARYS(IMESH)%XDIFF      (:) = 9D9
-ALLOCATE (GP_BOUDARYS(IMESH)%YDIFF      (1:IDIM)); GP_BOUDARYS(IMESH)%YDIFF      (:) = 9D9
-ALLOCATE (GP_BOUDARYS(IMESH)%ZDIFF      (1:IDIM)); GP_BOUDARYS(IMESH)%ZDIFF      (:) = 9D9
-ALLOCATE (GP_BOUDARYS(IMESH)%Z_GPYRO    (1:IDIM)); GP_BOUDARYS(IMESH)%Z_GPYRO    (:) = 0D0
-ALLOCATE (GP_BOUDARYS(IMESH)%X_GPYRO    (1:IDIM)); GP_BOUDARYS(IMESH)%X_GPYRO    (:) = 0D0
-ALLOCATE (GP_BOUDARYS(IMESH)%Y_GPYRO    (1:IDIM)); GP_BOUDARYS(IMESH)%Y_GPYRO    (:) = 0D0
-ALLOCATE (GP_BOUDARYS(IMESH)%X_FDS      (1:IDIM)); GP_BOUDARYS(IMESH)%X_FDS      (:) = 0D0
-ALLOCATE (GP_BOUDARYS(IMESH)%Y_FDS      (1:IDIM)); GP_BOUDARYS(IMESH)%Y_FDS      (:) = 0D0
-ALLOCATE (GP_BOUDARYS(IMESH)%Z_FDS      (1:IDIM)); GP_BOUDARYS(IMESH)%Z_FDS      (:) = 0D0
-ALLOCATE (GP_BOUDARYS(IMESH)%COMPLETE_CELL_AT_BC(1:IDIM)); GP_BOUDARYS(IMESH)%COMPLETE_CELL_AT_BC(:) = .FALSE.
-ALLOCATE (GP_BOUDARYS(IMESH)%GPBC       (1:IDIM))
+BOUNDARYS => GP_BOUDARYS(IMESH)
+
+ALLOCATE (BOUNDARYS%IMESH_GPYRO(1:IDIM)); BOUNDARYS%IMESH_GPYRO(:) = 0
+ALLOCATE (BOUNDARYS%IZ_GPYRO   (1:IDIM)); BOUNDARYS%IZ_GPYRO   (:) = 0
+ALLOCATE (BOUNDARYS%IX_GPYRO   (1:IDIM)); BOUNDARYS%IX_GPYRO   (:) = 0
+ALLOCATE (BOUNDARYS%IY_GPYRO   (1:IDIM)); BOUNDARYS%IY_GPYRO   (:) = 0
+ALLOCATE (BOUNDARYS%IOR_GPYRO  (1:IDIM)); BOUNDARYS%IOR_GPYRO  (:) = 0
+ALLOCATE (BOUNDARYS%SURF_IDX   (1:IDIM)); BOUNDARYS%SURF_IDX   (:) = -1
+ALLOCATE (BOUNDARYS%IOR_FDS    (1:IDIM)); BOUNDARYS%IOR_FDS    (:) = 0
+ALLOCATE (BOUNDARYS%IMESH_FDS  (1:IDIM)); BOUNDARYS%IMESH_FDS  (:) = 0
+ALLOCATE (BOUNDARYS%I_FDS      (1:IDIM)); BOUNDARYS%I_FDS      (:) = 0
+ALLOCATE (BOUNDARYS%J_FDS      (1:IDIM)); BOUNDARYS%J_FDS      (:) = 0
+ALLOCATE (BOUNDARYS%K_FDS      (1:IDIM)); BOUNDARYS%K_FDS      (:) = 0
+ALLOCATE (BOUNDARYS%IW_FDS     (1:IDIM)); BOUNDARYS%IW_FDS     (:) = 0
+ALLOCATE (BOUNDARYS%RATIO      (1:IDIM)); BOUNDARYS%RATIO      (:) = 0
+ALLOCATE (BOUNDARYS%DIFF       (1:IDIM)); BOUNDARYS%DIFF       (:) = 9D9
+ALLOCATE (BOUNDARYS%XDIFF      (1:IDIM)); BOUNDARYS%XDIFF      (:) = 9D9
+ALLOCATE (BOUNDARYS%YDIFF      (1:IDIM)); BOUNDARYS%YDIFF      (:) = 9D9
+ALLOCATE (BOUNDARYS%ZDIFF      (1:IDIM)); BOUNDARYS%ZDIFF      (:) = 9D9
+ALLOCATE (BOUNDARYS%Z_GPYRO    (1:IDIM)); BOUNDARYS%Z_GPYRO    (:) = 0D0
+ALLOCATE (BOUNDARYS%X_GPYRO    (1:IDIM)); BOUNDARYS%X_GPYRO    (:) = 0D0
+ALLOCATE (BOUNDARYS%Y_GPYRO    (1:IDIM)); BOUNDARYS%Y_GPYRO    (:) = 0D0
+ALLOCATE (BOUNDARYS%X_FDS      (1:IDIM)); BOUNDARYS%X_FDS      (:) = 0D0
+ALLOCATE (BOUNDARYS%Y_FDS      (1:IDIM)); BOUNDARYS%Y_FDS      (:) = 0D0
+ALLOCATE (BOUNDARYS%Z_FDS      (1:IDIM)); BOUNDARYS%Z_FDS      (:) = 0D0
+ALLOCATE (BOUNDARYS%COMPLETE_CELL_AT_BC(1:IDIM)); BOUNDARYS%COMPLETE_CELL_AT_BC(:) = .FALSE.
+ALLOCATE (BOUNDARYS%GPBC       (1:IDIM))
+
+
 
 DO ICOUNT = 1, IDIM
-   GP_BOUDARYS(IMESH)%GPBC(ICOUNT)%QE            = 0D0
-   GP_BOUDARYS(IMESH)%GPBC(ICOUNT)%QENET         = 0D0
-   GP_BOUDARYS(IMESH)%GPBC(ICOUNT)%HC0           = 0D0
-   GP_BOUDARYS(IMESH)%GPBC(ICOUNT)%TINF          = 0D0
-   GP_BOUDARYS(IMESH)%GPBC(ICOUNT)%TFIXED        = 0D0
-   GP_BOUDARYS(IMESH)%GPBC(ICOUNT)%HFIXED        = 0D0
-   GP_BOUDARYS(IMESH)%GPBC(ICOUNT)%PRES          = 0D0
-   GP_BOUDARYS(IMESH)%GPBC(ICOUNT)%MFLUX         = 0D0
-   GP_BOUDARYS(IMESH)%GPBC(ICOUNT)%HM0           = 0D0
-   GP_BOUDARYS(IMESH)%GPBC(ICOUNT)%QEG           = 0D0
-   GP_BOUDARYS(IMESH)%GPBC(ICOUNT)%HC0G          = 0D0
-   GP_BOUDARYS(IMESH)%GPBC(ICOUNT)%TINFG         = 0D0
-   GP_BOUDARYS(IMESH)%GPBC(ICOUNT)%TFIXEDG       = 0D0
-   GP_BOUDARYS(IMESH)%GPBC(ICOUNT)%HFIXEDG       = 0D0
-   GP_BOUDARYS(IMESH)%GPBC(ICOUNT)%RERAD         = .FALSE.
-   GP_BOUDARYS(IMESH)%GPBC(ICOUNT)%EMISSIVITY    = 0D0
-   GP_BOUDARYS(IMESH)%GPBC(ICOUNT)%T_SURFACE     = 0D0
-   GP_BOUDARYS(IMESH)%GPBC(ICOUNT)%T_SURFACE_OLD = 0D0
-   GP_BOUDARYS(IMESH)%GPBC(ICOUNT)%QRADOUT       = 0D0
-   GP_BOUDARYS(IMESH)%GPBC(ICOUNT)%QCONF         = 0D0
-   ALLOCATE(GP_BOUDARYS(IMESH)%GPBC(ICOUNT)%YJINF   (1:GPROP%NGSPEC)); GP_BOUDARYS(IMESH)%GPBC(ICOUNT)%YJINF   (:) = 0D0
-   ALLOCATE(GP_BOUDARYS(IMESH)%GPBC(ICOUNT)%MASSFLUX(1:GPROP%NGSPEC)); GP_BOUDARYS(IMESH)%GPBC(ICOUNT)%MASSFLUX(:) = 0D0
-   ALLOCATE(GP_BOUDARYS(IMESH)%GPBC(ICOUNT)%MLR     (1:GPROP%NGSPEC)); GP_BOUDARYS(IMESH)%GPBC(ICOUNT)%MLR     (:) = 0D0
+   BOUNDARYS%GPBC(ICOUNT)%QE            = 0D0
+   BOUNDARYS%GPBC(ICOUNT)%QENET         = 0D0
+   BOUNDARYS%GPBC(ICOUNT)%HC0           = 0D0
+   BOUNDARYS%GPBC(ICOUNT)%TINF          = 0D0
+   BOUNDARYS%GPBC(ICOUNT)%TFIXED        = 0D0
+   BOUNDARYS%GPBC(ICOUNT)%HFIXED        = 0D0
+   BOUNDARYS%GPBC(ICOUNT)%PRES          = 0D0
+   BOUNDARYS%GPBC(ICOUNT)%MFLUX         = 0D0
+   BOUNDARYS%GPBC(ICOUNT)%HM0           = 0D0
+   BOUNDARYS%GPBC(ICOUNT)%QEG           = 0D0
+   BOUNDARYS%GPBC(ICOUNT)%HC0G          = 0D0
+   BOUNDARYS%GPBC(ICOUNT)%TINFG         = 0D0
+   BOUNDARYS%GPBC(ICOUNT)%TFIXEDG       = 0D0
+   BOUNDARYS%GPBC(ICOUNT)%HFIXEDG       = 0D0
+   BOUNDARYS%GPBC(ICOUNT)%RERAD         = .FALSE.
+   BOUNDARYS%GPBC(ICOUNT)%EMISSIVITY    = 0D0
+   BOUNDARYS%GPBC(ICOUNT)%T_SURFACE     = 0D0
+   BOUNDARYS%GPBC(ICOUNT)%T_SURFACE_OLD = 0D0
+   BOUNDARYS%GPBC(ICOUNT)%QRADOUT       = 0D0
+   BOUNDARYS%GPBC(ICOUNT)%QCONF         = 0D0
+   ALLOCATE(BOUNDARYS%GPBC(ICOUNT)%YJINF   (1:GPROP%NGSPEC)); BOUNDARYS%GPBC(ICOUNT)%YJINF   (:) = 0D0
+   ALLOCATE(BOUNDARYS%GPBC(ICOUNT)%MASSFLUX(1:GPROP%NGSPEC)); BOUNDARYS%GPBC(ICOUNT)%MASSFLUX(:) = 0D0
+   ALLOCATE(BOUNDARYS%GPBC(ICOUNT)%MLR     (1:GPROP%NGSPEC)); BOUNDARYS%GPBC(ICOUNT)%MLR     (:) = 0D0
 ENDDO
 
-!******************************************************************************	
+!******************************************************************************
 END SUBROUTINE ALLOCATE_GPYRO_BOUNDARYS_INFO
-!******************************************************************************	
+!******************************************************************************
 
+
+! *****************************************************************************
+SUBROUTINE ALLOCATE_MESH(IMESH)
+! *****************************************************************************
+INTEGER, INTENT(IN) :: IMESH
+TYPE(GPYRO_MESH_TYPE), POINTER :: M
+INTEGER ::NCELLZ,NCELLX,NCELLY
+M => G%MESH
+
+M%ZDIM = GPG%ZDIM(IMESH); IF (M%NCELLZ .EQ. 1) M%ZDIM = 1.
+M%XDIM = GPG%XDIM(IMESH); IF (M%NCELLX .EQ. 1) M%XDIM = 1.
+M%YDIM = GPG%YDIM(IMESH); IF (M%NCELLY .EQ. 1) M%YDIM = 1.
+
+M%NCELLZ = GPG%NCELLZ(IMESH)
+M%NCELLX = GPG%NCELLX(IMESH)
+M%NCELLY = GPG%NCELLY(IMESH)
+
+M%DIMENSION = 0
+IF (M%NCELLZ .GT.1 ) M%DIMENSION = M%DIMENSION +1
+IF (M%NCELLX .GT.1 ) M%DIMENSION = M%DIMENSION +1
+IF (M%NCELLY .GT.1 ) M%DIMENSION = M%DIMENSION +1
+
+
+M%HALF_CELLS_AT_BC = GPG%HALF_CELLS_AT_BC(IMESH)
+IF (.NOT. M%HALF_CELLS_AT_BC ) THEN
+   ! If the cell at the boundary is a complete cell, add 2 ghost cells at the edge.
+   IF (M%NCELLZ .NE. 1) M%NCELLZ = M%NCELLZ +2
+   IF (M%NCELLX .NE. 1) M%NCELLX = M%NCELLX +2
+   IF (M%NCELLY .NE. 1) M%NCELLY = M%NCELLY +2
+ENDIF
+
+NCELLZ=M%NCELLZ
+NCELLX=M%NCELLX
+NCELLY=M%NCELLY
+
+!SOLVER_DEFORMATION_MODE : 1 No deformation
+!                        : 2 Deformation But Flux computed as the initial non deformed mesh
+!                        : 3 Deformation And Heat Flux acount for mesh distortient 
+
+IF (GPG%SOLVER_DEFORMATION_MODE .EQ. 1) M%DEFORMATION = .TRUE.
+IF (GPG%SOLVER_DEFORMATION_MODE .GT. 1) M%DEFORMATION = .FALSE.
+
+
+!Coordinates of cell center in z, x, and y directions:
+ALLOCATE (M%Z(1:NCELLZ,1:NCELLX,1:NCELLY)); M%Z=0D0
+ALLOCATE (M%X(1:NCELLX) ); M%X=0D0
+ALLOCATE (M%Y(1:NCELLY) ); M%Y=0D0
+
+ALLOCATE(M%IMASK  (1:NCELLZ,1:NCELLX,1:NCELLY)); M%IMASK= .FALSE.
+ALLOCATE(M%ID_OBST(1:NCELLZ,1:NCELLX,1:NCELLY)); M%ID_OBST(:,:,:) = 0
+
+!Distance between cell centers in z, x, and y directions
+ALLOCATE (M%DZT  (1:NCELLZ,1:NCELLX,1:NCELLY) ); M%DZT=9D9 !Delta-z (top)
+ALLOCATE (M%DZB  (1:NCELLZ,1:NCELLX,1:NCELLY) ); M%DZB=9D9 !Delta-z (bottom)
+ALLOCATE (M%DXE  (1:NCELLZ,1:NCELLX,1:NCELLY) ); M%DXE=9D9 !Delta-x (east)
+ALLOCATE (M%DXW  (1:NCELLZ,1:NCELLX,1:NCELLY) ); M%DXW=9D9 !Delta-x (west)
+ALLOCATE (M%DYN  (1:NCELLZ,1:NCELLX,1:NCELLY) ); M%DYN=9D9 !Delta-y (north)
+ALLOCATE (M%DYS  (1:NCELLZ,1:NCELLX,1:NCELLY) ); M%DYS=9D9 !Delta-y (south)
+
+
+ALLOCATE (M%DZ    (1:NCELLZ,1:NCELLX,1:NCELLY) ); M%DZ = 0D0 ! Cell size in z direction
+ALLOCATE (M%DZN   (1:NCELLZ,1:NCELLX,1:NCELLY) ); M%DZN= 0D0 ! Delta-z at the new time step
+ALLOCATE (M%DX    (1:NCELLZ,1:NCELLX,1:NCELLY) ); M%DX = 0D0 ! Cell size in x direction
+ALLOCATE (M%DY    (1:NCELLZ,1:NCELLX,1:NCELLY) ); M%DY = 0D0 ! Cell size in y direction
+
+ALLOCATE (M%DV    (1:NCELLZ,1:NCELLX,1:NCELLY) ); M%DV = 0D0 ! Cell volume 
+
+! Surface area of the cell
+ALLOCATE (M%SXE  (1:NCELLZ,1:NCELLX,1:NCELLY)); M%SXE = 0D0 ! East direction
+ALLOCATE (M%SXW  (1:NCELLZ,1:NCELLX,1:NCELLY)); M%SXW = 0D0 ! West direction
+ALLOCATE (M%SYN  (1:NCELLZ,1:NCELLX,1:NCELLY)); M%SYN = 0D0 ! North direction
+ALLOCATE (M%SYS  (1:NCELLZ,1:NCELLX,1:NCELLY)); M%SYS = 0D0 ! South direction
+ALLOCATE (M%DXDY (1:NCELLZ,1:NCELLX,1:NCELLY)); M%DXDY= 0D0 ! Dx * Dy (z-direction)
+
+!Geometric coefficient introduced for diffusive solvers
+ALLOCATE (M%GZT (1:NCELLZ,1:NCELLX,1:NCELLY)); M%GZT = 0D0
+ALLOCATE (M%GZB (1:NCELLZ,1:NCELLX,1:NCELLY)); M%GZB = 0D0
+ALLOCATE (M%GXE (1:NCELLZ,1:NCELLX,1:NCELLY)); M%GXE = 0D0
+ALLOCATE (M%GXW (1:NCELLZ,1:NCELLX,1:NCELLY)); M%GXW = 0D0
+ALLOCATE (M%GYN (1:NCELLZ,1:NCELLX,1:NCELLY)); M%GYN = 0D0
+ALLOCATE (M%GYS (1:NCELLZ,1:NCELLX,1:NCELLY)); M%GYS = 0D0
+
+
+IF (GPG%SOLVER_DEFORMATION_MODE .GE. 3) THEN
+   ALLOCATE (M%TAN_ZX (1:NCELLZ+1,1:NCELLX,1:NCELLY)); M%TAN_ZX = 9D9
+   ALLOCATE (M%TAN_ZY (1:NCELLZ+1,1:NCELLX,1:NCELLY)); M%TAN_ZY = 9D9
+   ALLOCATE (M%TAN_X  (1:NCELLZ,1:NCELLX+1,1:NCELLY)); M%TAN_X  = 9D9
+   ALLOCATE (M%TAN_Y  (1:NCELLZ,1:NCELLX,1:NCELLY+1)); M%TAN_Y  = 9D9
+ENDIF
+
+! *****************************************************************************
+END SUBROUTINE ALLOCATE_MESH
+! *****************************************************************************
 
 ! *****************************************************************************
 SUBROUTINE ALLOCATE_MEMORY_FOR_FIELD(IMESH, NCELLZ, NCELLX, NCELLY, NSSPEC, NGSPEC)
 ! *****************************************************************************
 INTEGER, INTENT(IN) :: IMESH, NCELLZ, NCELLX, NCELLY
 INTEGER, INTENT(IN) :: NSSPEC, NGSPEC
-TYPE(GPYRO_MESH_TYPE), POINTER :: G
+TYPE( GPYRO_DOMAIN_TYPE), POINTER :: G
 TYPE(GPYRO_STORAGE_TYPE), POINTER :: S
 
 G => GPM(IMESH)
@@ -1504,15 +536,14 @@ S => G%STORAGE
 ALLOCATE(S%TP_W1(NCELLZ,NCELLX,NCELLY),     S%TP_W2(NCELLZ,NCELLX,NCELLY))
 ALLOCATE(S%HP_W1(NCELLZ,NCELLX,NCELLY),     S%HP_W2(NCELLZ,NCELLX,NCELLY))
 ALLOCATE(S%RP_W1(NCELLZ,NCELLX,NCELLY),     S%RP_W2(NCELLZ,NCELLX,NCELLY))
-ALLOCATE(S%DLTZ_W1(NCELLZ,NCELLX,NCELLY),   S%DLTZ_W2(NCELLZ,NCELLX,NCELLY))
-ALLOCATE(S%RDLTZ_W1(NCELLZ,NCELLX,NCELLY),  S%RDLTZ_W2(NCELLZ,NCELLX,NCELLY))
+ALLOCATE(S%DZ_W1(NCELLZ,NCELLX,NCELLY),     S%DZ_W2(NCELLZ,NCELLX,NCELLY))
+ALLOCATE(S%MASS_W1(NCELLZ,NCELLX,NCELLY),   S%MASS_W2(NCELLZ,NCELLX,NCELLY))
 
 IF (GPG%SOLVE_GAS_YJ .OR. GPG%SOLVE_PRESSURE) THEN
    ALLOCATE(S%RG_W1(NCELLZ,NCELLX,NCELLY),     S%RG_W2(NCELLZ,NCELLX,NCELLY))
 ENDIF
 IF (GPG%SOLVE_PRESSURE) THEN
    ALLOCATE(S%P_W1(NCELLZ,NCELLX,NCELLY),      S%P_W2(NCELLZ,NCELLX,NCELLY))
-   ALLOCATE(S%M_W1(NCELLZ,NCELLX,NCELLY),      S%M_W2(NCELLZ,NCELLX,NCELLY))
 ENDIF
 
 IF (GPG%SOLVE_GAS_ENERGY) THEN
@@ -1528,12 +559,13 @@ ENDIF
 ! Arrays 4D (NSSPEC, NCELLZ, NCELLX, NCELLY)
 ALLOCATE(S%YI_W1(NSSPEC,NCELLZ,NCELLX,NCELLY),       S%YI_W2(NSSPEC,NCELLZ,NCELLX,NCELLY))
 ALLOCATE(S%XI_W1(NSSPEC,NCELLZ,NCELLX,NCELLY),       S%XI_W2(NSSPEC,NCELLZ,NCELLX,NCELLY))
-ALLOCATE(S%RYIDZP_W1(NSSPEC,NCELLZ,NCELLX,NCELLY),   S%RYIDZP_W2(NSSPEC,NCELLZ,NCELLX,NCELLY))
-ALLOCATE(S%RYIDZSIGMA_W1(NSSPEC,NCELLZ,NCELLX,NCELLY), S%RYIDZSIGMA_W2(NSSPEC,NCELLZ,NCELLX,NCELLY))
+ALLOCATE(S%MASS_I_W1(NSSPEC,NCELLZ,NCELLX,NCELLY),   S%MASS_I_W2(NSSPEC,NCELLZ,NCELLX,NCELLY))
+ALLOCATE(S%TIME_INTEGRATED_MASS_PRODUCED_W1(NSSPEC,NCELLZ,NCELLX,NCELLY), S%TIME_INTEGRATED_MASS_PRODUCED_W2(NSSPEC,NCELLZ,NCELLX,NCELLY))
 
 ! Arrays 4D (NGSPEC, NCELLZ, NCELLX, NCELLY)
-IF (GPG%SOLVE_GAS_YJ) THEN
+IF (GPG%NEED_GAS_YJ) THEN
    ALLOCATE(S%YJG_W1(NGSPEC,NCELLZ,NCELLX,NCELLY),      S%YJG_W2(NGSPEC,NCELLZ,NCELLX,NCELLY))
+   ALLOCATE(S%M_W1(NCELLZ,NCELLX,NCELLY),      S%M_W2(NCELLZ,NCELLX,NCELLY))
 ENDIF
 ! *****************************************************************************
 END SUBROUTINE ALLOCATE_MEMORY_FOR_FIELD
@@ -1543,6 +575,9 @@ END SUBROUTINE ALLOCATE_MEMORY_FOR_FIELD
 ! *****************************************************************************
 SUBROUTINE ASSIGN_FIELD_TO_MEMORY
 ! *****************************************************************************
+TYPE (GPYRO_MESH_TYPE), POINTER :: M
+
+M => G%MESH
 
 ! Assign field pointers to their working memory (W1/W2)
 G%TP    => G%STORAGE%TP_W1
@@ -1554,23 +589,23 @@ G%HPN   => G%STORAGE%HP_W2
 G%RP    => G%STORAGE%RP_W1
 G%RPN   => G%STORAGE%RP_W2
 
-G%DLTZ  => G%STORAGE%DLTZ_W1
-G%DLTZN => G%STORAGE%DLTZ_W2
+M%DZ  => G%STORAGE%DZ_W1
+M%DZN => G%STORAGE%DZ_W2
 
-G%RDLTZ  => G%STORAGE%RDLTZ_W1
-G%RDLTZN => G%STORAGE%RDLTZ_W2
+G%MASS  => G%STORAGE%MASS_W1
+G%MASS_N => G%STORAGE%MASS_W2
 
 
 IF (GPG%SOLVE_GAS_YJ .OR. GPG%SOLVE_PRESSURE) THEN
    G%RG    => G%STORAGE%RG_W1
    G%RGN   => G%STORAGE%RG_W2
+   G%M     => G%STORAGE%M_W1
+   G%MN    => G%STORAGE%M_W2
 ENDIF
 
 IF (GPG%SOLVE_PRESSURE) THEN
    G%P     => G%STORAGE%P_W1
    G%PN    => G%STORAGE%P_W2
-   G%M     => G%STORAGE%M_W1
-   G%MN    => G%STORAGE%M_W2
 ENDIF
 
 IF (GPG%SOLVE_GAS_ENERGY) THEN
@@ -1593,13 +628,13 @@ G%YIN   => G%STORAGE%YI_W2
 G%XI    => G%STORAGE%XI_W1
 G%XIN   => G%STORAGE%XI_W2
 
-G%RYIDZP  => G%STORAGE%RYIDZP_W1
-G%RYIDZPN => G%STORAGE%RYIDZP_W2
+G%MASS_I  => G%STORAGE%MASS_I_W1
+G%MASS_IN => G%STORAGE%MASS_I_W2
 
-G%RYIDZSIGMA  => G%STORAGE%RYIDZSIGMA_W1
-G%RYIDZSIGMAN => G%STORAGE%RYIDZSIGMA_W2
+G%TIME_INTEGRATED_MASS_PRODUCED  => G%STORAGE%TIME_INTEGRATED_MASS_PRODUCED_W1
+G%TIME_INTEGRATED_MASS_PRODUCEDN => G%STORAGE%TIME_INTEGRATED_MASS_PRODUCED_W2
 
-IF (GPG%SOLVE_GAS_YJ) THEN
+IF (GPG%NEED_GAS_YJ) THEN
    G%YJG   => G%STORAGE%YJG_W1
    G%YJGN  => G%STORAGE%YJG_W2
 ENDIF
@@ -1609,9 +644,9 @@ END SUBROUTINE ASSIGN_FIELD_TO_MEMORY
 
 
 
-!******************************************************************************	
+!******************************************************************************
 SUBROUTINE INIT_GPYRO(ICASE,IMESH)
-!******************************************************************************	
+!******************************************************************************
 
 INTEGER, INTENT(IN) :: ICASE,IMESH
 
@@ -1629,16 +664,11 @@ CALL INIT_REACTIONS
 !========================================================!
 !================== BUILD MESH AND IC ===================!
 !========================================================!
+! Initialise mesh
+CALL INIT_MESH(IMESH)
 
-! Initialise G%X, G%Y, G%Z, G%DLTZ, G%DLZN, G%DLTX, G%DLTY
-! G%DZT, G%DZB, G%DXE, G%DXW, G%DYN, G%DYS
-! G%DXDY, G%DXDZ,G%DYDZ, G%DV
-CALL GENERATE_RAW_GRID(IMESH)
-!Set initial mass fractions, temperature, and pressure:
-! IMASK, YIN, YI, TPN, TP,
-! P, PN, YJG, YJGN, TG, TGN
-! GPBCP%T_SURFACE, GPBCP%T_SURFACE_OLD
-CALL APPLY_GEOMETRY_TO_GRID(ICASE,IMESH)
+CALL SETUP_DETAILED_ICS(IMESH)
+
 ! GP_BOUDARYS
 CALL INIT_BOUNDARY_CELLS(IMESH)
 !========================================================!
@@ -1646,18 +676,17 @@ CALL INIT_BOUNDARY_CELLS(IMESH)
 
 CALL INIT_GPYRO_VARS(IMESH)
 
-
-CALL INIT_DUMP_OUTPOUT
+CALL INIT_DUMP_OUTPOUT(IMESH)
 
 IF (IGPYRO_TYPE .EQ. 1 .AND. IMESH .EQ. 1) CALL WRITE_DOTOUT_FILE(ICASE,0D0,1) 
 
-!******************************************************************************	
+!******************************************************************************
 END SUBROUTINE INIT_GPYRO
-!******************************************************************************	
+!******************************************************************************
 
 
 
-!******************************************************************************	
+!******************************************************************************
 SUBROUTINE INIT_GPYRO_GENERAL(IMESH)
 !******************************************************************************
 INTEGER, INTENT(IN) :: IMESH
@@ -1700,547 +729,98 @@ END SUBROUTINE INIT_GPYRO_GENERAL
 !******************************************************************************
 
 
-
-!******************************************************************************	
-SUBROUTINE GENERATE_RAW_GRID(IMESH)
-!******************************************************************************
-! Initialise G%X, G%Y, G%Z, G%DLTZ, G%DLZN, G%DLTX, G%DLTY
-! G%DZT, G%DZB, G%DXE, G%DXW, G%DYN, G%DYS
-! G%DXDY, G%DXDZ,G%DYDZ, G%DV
+! *****************************************************************************
+SUBROUTINE SETUP_DETAILED_ICS(IMESH)
+! *****************************************************************************
 INTEGER, INTENT(IN) :: IMESH
-INTEGER :: NCELLZ, NCELLX, NCELLY
-REAL(EB) :: ZDIM, XDIM, YDIM
 INTEGER :: IZ,IX,IY
-
-
-G=>GPM(IMESH)
-
-NCELLZ = G%NCELLZ !Number of cells in z direction
-NCELLX = G%NCELLX !Number of cells in x direction
-NCELLY = G%NCELLY !Number of cells in y direction
-
-ZDIM   = G%ZDIM
-XDIM   = G%XDIM
-YDIM   = G%YDIM 
-
-G%THICKNESS   = ZDIM
-
-!Set z-direction spacing:
-IF ((NCELLZ .GT. 1) .AND. G%HALF_CELLS_AT_BC) THEN
-   !! Classical mode implemented by CL for building the geometry with half-boundary cells at the edges. !!
-
-   ! Set DLTZN and DZN:
-   G%DLTZN (:     ,:,:) = ZDIM/REAL(NCELLZ-1,EB)
-   G%DLTZN (1     ,:,:) = 0.5D0 * G%DLTZN(1     ,:,:) ! Half Boundary cell
-   G%DLTZN (NCELLZ,:,:) = 0.5D0 * G%DLTZN(NCELLZ,:,:) ! Half Boundary cell
-   G%DLTZ  (:,:,:) = G%DLTZN(:,:,:)
-
-   !Delta-z top and bottom:
-   G%DZT(:,:,:) = ZDIM/REAL(NCELLZ-1,EB)
-   G%DZB(:,:,:) = G%DZT(:,:,:)
-
-   ! z-position of the center of the cells
-   G%Z(1) = 0D0
-   G%Z(2) = G%Z(1) + G%DLTZN(1,1,1) + 0.5D0*G%DLTZN(2,1,1)
-   DO IZ = 3, NCELLZ-1
-      G%Z(IZ) = G%Z(IZ-1) + 0.5D0*(G%DLTZN(IZ-1,1,1) + G%DLTZN(IZ,1,1))
-   ENDDO
-   G%Z(NCELLZ) = G%Z(NCELLZ-1) + 0.5D0 * G%DLTZN(NCELLZ-1,1,1) + G%DLTZN(NCELLZ,1,1)    
-
-ELSEIF ((NCELLZ .GT. 1) .AND. (.NOT. G%HALF_CELLS_AT_BC)) THEN
-   ! New mode for building mesh with complete cell at the edge and with ghost cell.
-   ! NZ=1 and NZ=NCELLZ is the ghost cell.
-
-   G%DLTZN (:,:,:) = ZDIM/REAL(NCELLZ-2,EB)
-   G%DLTZ  (:,:,:) = G%DLTZN(:,:,:)
-   
-   !Delta-z top and bottom:
-   G%DZT(:,:,:) = ZDIM/REAL(NCELLZ-2,EB)
-   G%DZB(:,:,:) = G%DZT(:,:,:)
-
-   ! z-position of the center of the cells
-   G%Z(1) = -0.5D0 *G%DLTZN (1,1,1) ! Center of the gost cell (not used)
-   DO IZ = 2, NCELLZ
-      G%Z(IZ) = G%Z(IZ-1) + 0.5D0*(G%DLTZN(IZ-1,1,1) + G%DLTZN(IZ,1,1))
-   ENDDO
-
-ELSEIF (NCELLZ .EQ. 1) THEN
-   G%DLTZN(:,:,:) = 1D0
-   G%DLTZ (:,:,:) = 1D0
-   G%DZT(:,:,:) = 1D0
-   G%DZB(:,:,:) = 1D0
-   G%Z(1) = 0D0
-ENDIF
-
-!Set x-direction spacing:
-IF ((NCELLX .GT. 1) .AND. G%HALF_CELLS_AT_BC) THEN
-   G%DLTX (:,:,:) = XDIM/REAL(NCELLX-1,EB)
-   G%DLTX (:,1,:) = 0.5D0 * G%DLTX(:,1,:)
-   G%DLTX (:,NCELLX,:) = 0.5D0 * G%DLTX(:,NCELLX,:) 
-   !G%DLTXN  (:,:,:) = G%DLTX(:,:,:)
-
-   !Delta-x east and west:
-   G%DXE(:,:,:) = XDIM/REAL(NCELLX-1,EB)
-   G%DXW(:,:,:) = G%DXE(:,:,:) 
-
-   ! Set x of each cell:
-   G%X(1) = 0D0
-   G%X(2) = G%X(1) + G%DLTX (1,1,1) + 0.5D0*G%DLTX (1,2,1)
-   DO IX = 3, NCELLX-1
-      G%X(IX) = G%X(IX-1) + 0.5D0*(G%DLTX (1,IX-1,1) + G%DLTX (1,IX,1))
-   ENDDO
-   G%X(NCELLX) = G%X(NCELLX-1) + 0.5D0 * G%DLTX (1,NCELLX-1,1) + G%DLTX (1,NCELLX,1)    
-
-ELSEIF ((NCELLX .GT. 1) .AND. (.NOT. G%HALF_CELLS_AT_BC)) THEN
-
-   G%DLTX (:,:,:) = XDIM/REAL(NCELLX-2,EB) 
-   !G%DLTXN(:,:,:) = G%DLTX(:,:,:)
-
-   !Delta-x east and west:
-   G%DXE(:,:,:) = XDIM/REAL(NCELLX-2,EB)
-   G%DXW(:,:,:) = G%DXE(:,:,:) 
-
-   ! x-position of the center of the cells
-   G%X(1) = -0.5D0 *G%DLTX (1,1,1) ! Center of the gost cell (not used)
-   DO IX = 2, NCELLX
-      G%X(IX) = G%X(IX-1) + 0.5D0*(G%DLTX(IX-1,1,1) + G%DLTX(IX,1,1))
-   ENDDO
-
-ELSE ! NCELLX=1
-   G%DLTX (:,:,:) = 1D0   
-   !G%DLTXN(:,:,:) = 1D0
-ENDIF
-
-!Set y-direction spacing:
-IF ((NCELLY .GT. 1) .AND. G%HALF_CELLS_AT_BC)  THEN
-   G%DLTY (:,:,:) = YDIM/REAL(NCELLY-1,EB)
-   G%DLTY (:,:,1) = 0.5D0 * G%DLTY(:,:,1)
-   G%DLTY(:,:,NCELLY) = 0.5D0 * G%DLTY(:,:,NCELLY) 
-   !G%DLTYN (:,:,:) = G%DLTY(:,:,:)
-
-   !Delta-y north and south:
-   G%DYN(:,:,:) = YDIM/REAL(NCELLY-1,EB)
-   G%DYS(:,:,:) = G%DYN(:,:,:) 
-
-   ! Set y of each cell:
-   G%Y(1) = 0D0
-   G%Y(2) = G%Y(1) + G%DLTY(1,1,1) + 0.5D0*G%DLTY(1,1,2)
-   DO IY = 3, NCELLY-1
-      G%Y(IY) = G%Y(IY-1) + 0.5D0*(G%DLTY(1,1,IY-1) + G%DLTY(1,1,IY))
-   ENDDO
-   G%Y(NCELLY) = G%Y(NCELLY-1) + 0.5D0 * G%DLTY(1,1,NCELLY-1) + G%DLTY(1,1,NCELLY)    
-
-ELSEIF ((NCELLX .GT. 1) .AND. (.NOT. G%HALF_CELLS_AT_BC)) THEN
-   G%DLTY  (:,:,:) = YDIM/REAL(NCELLY-2,EB)
-   !G%DLTYN (:,:,:) = G%DLTY(:,:,:)
-   
-   !Delta-y north and south:
-   G%DYN(:,:,:) = YDIM/REAL(NCELLY-2,EB)
-   G%DYS(:,:,:) = G%DYN(:,:,:) 
-
-   ! y-position of the center of the cells
-   G%Y(1) = -0.5D0 *G%DLTY (1,1,1) ! Center of the gost cell (not used)
-   DO IY = 2, NCELLY
-      G%Y(IY) = G%Y(IY-1) + 0.5D0*(G%DLTY(1,1,IY-1) + G%DLTY(1,1,IY))
-   ENDDO
-
-ELSE !NCELLY=1
-   G%DLTY (:,:,:) = 1D0   
-   !G%DLTYN(:,:,:) = 1D0
-ENDIF
-
-! Set Volume and surfaces
-IF (NCELLX .EQ. 1 .AND. NCELLY .EQ. 1 .AND. NCELLZ .EQ. 1) THEN
-   G%DXDY(1,1,1) = 1D0
-   G%DXDZ(1,1,1) = 1D0
-   G%DYDZ(1,1,1) = 1D0
-   G%DV  (1,1,1) = 1D0 
-ELSE
-   DO IX = 1, NCELLX
-   DO IY = 1, NCELLY
-   DO IZ = 1, NCELLZ
-      G%DXDY(IZ,IX,IY) = G%DLTX(IZ,IX,IY) * G%DLTY(IZ,IX,IY)
-      G%DXDZ(IZ,IX,IY) = G%DLTX(IZ,IX,IY) * G%DLTZ(IZ,IX,IY)
-      G%DYDZ(IZ,IX,IY) = G%DLTY(IZ,IX,IY) * G%DLTZ(IZ,IX,IY)
-      G%DV  (IZ,IX,IY) = G%DLTZ(IZ,IX,IY) * G%DLTX(IZ,IX,IY) * G%DLTY(IZ,IX,IY) 
-   ENDDO
-   ENDDO
-   ENDDO
-ENDIF
-
-!******************************************************************************	
-END SUBROUTINE GENERATE_RAW_GRID
-!******************************************************************************	
-
-
-!******************************************************************************	
-SUBROUTINE APPLY_GEOMETRY_TO_GRID(ICASE,IMESH)
-!******************************************************************************	
-!Set initial mass fractions, temperature, and pressure:
-! IMASK, YIN, YI, TPN, TP,
-! P, PN, YJG, YJGN, TG, TGN
-! GPBCP%T_SURFACE, GPBCP%T_SURFACE_OLD
-INTEGER, INTENT(IN) :: ICASE,IMESH
-
-REAL(EB) :: XB(6)
-INTEGER :: ICNUM,IOBST,ISPEC,IGSPEC
+INTEGER :: NCELLZ,NCELLX,NCELLY
+INTEGER :: ICNUM, ID_OBST,ISPEC,IGSPEC
+TYPE (GPYRO_MESH_TYPE), POINTER :: M
 INTEGER :: SURF_IDX(1:6)
-INTEGER :: NCELLZ, NCELLX, NCELLY
-LOGICAL :: VALID_OBSTS,GEOMETRY_FILE_EXISTS
-CHARACTER(300) :: MESSAGE
-CHARACTER(4) :: FOUR
 
-!Variables for read of geometry:
-INTEGER :: N_OBST
+G => GPM(IMESH)
+M => G%MESH
 
-! Variables for orientation
-LOGICAL :: GO
-INTEGER :: IPOS, ID,I , J, K, L, ICOUNT, IOS
-REAL(EB) :: A11, A12, A13, A21, A22, A23, A31, A32, A33
-
-CHARACTER(60) :: COLOR,SURF_ID
-NAMELIST /OBST/ XB, COLOR, SURF_ID, ICNUM, SURF_IDX
+NCELLZ = M%NCELLZ
+NCELLX = M%NCELLX
+NCELLY = M%NCELLY
 
 
-G=>GPM(IMESH)
-GPBCP(1:,1:,1:,-3:)=>G%GPYRO_BOUNDARY_CONDITION(1:,1:,1:,-3:)
-
-NCELLZ = G%NCELLZ !Number of cells in z direction
-NCELLX = G%NCELLX !Number of cells in x direction
-NCELLY = G%NCELLY !Number of cells in y direction
-
-
-!========================================================!
-!=========== SET DEFAULTS FOR ENTIRE DOMAIN =============!
-!========================================================!
-
-XB(1)         = 0D0
-XB(2)         = G%XDIM
-XB(3)         = 0D0
-XB(4)         = G%YDIM
-XB(5)         = 0D0
-XB(6)         = G%ZDIM
-ICNUM         = GPG%DEFAULT_IC(IMESH)
-SURF_IDX(:)   = GPG%DEFAULT_SURF_IDX(IMESH,:) 
-CALL SETUP_DETAILED_ICS(.FALSE.,NCELLX,NCELLY,NCELLZ)
-
-!Now set initial conditions obstruction by obstruction
-ICNUM = GPG%DEFAULT_IC(IMESH)
-
-DO IOBST = 1, GPG%NOBST
-   IF (GPG%GEOM(IOBST)%IMESH .NE. IMESH) CYCLE
+!$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) COLLAPSE(3)&
+!$OMP PRIVATE(IZ,IX,IY,ID_OBST,ICNUM,ISPEC,IGSPEC)
+DO IY = 1, NCELLY
+DO IX = 1, NCELLX
+DO IZ = 1, NCELLZ
+   ID_OBST=M%ID_OBST(IZ,IX,IY)
    
-   DO ISPEC = 1, SPROP%NSSPEC
-      G%YIN(ISPEC,:,:,:) = GPG%INITIAL_CONDITIONS(GPG%DEFAULT_IC(IMESH))%YI0(ISPEC)
-      G%YI (ISPEC,:,:,:) = GPG%INITIAL_CONDITIONS(GPG%DEFAULT_IC(IMESH))%YI0(ISPEC)
-   ENDDO
-
-   G%TPN(:,:,:) = GPG%INITIAL_CONDITIONS(GPG%DEFAULT_IC(IMESH))%TMP_INITIAL
-   G%TP (:,:,:) = GPG%INITIAL_CONDITIONS(GPG%DEFAULT_IC(IMESH))%TMP_INITIAL
-
-   GPBCP(:,:,:,:)%T_SURFACE_OLD = GPG%INITIAL_CONDITIONS(GPG%DEFAULT_IC(IMESH))%TMP_INITIAL
-   GPBCP(:,:,:,:)%T_SURFACE     = GPG%INITIAL_CONDITIONS(GPG%DEFAULT_IC(IMESH))%TMP_INITIAL
-
-   IF (GPG%SOLVE_GAS_YJ) THEN
-      DO IGSPEC = 1, GPROP%NGSPEC
-         G%YJGN(IGSPEC,:,:,:) = GPG%INITIAL_CONDITIONS(GPG%DEFAULT_IC(IMESH))%YJ0(IGSPEC)
-         G%YJG (IGSPEC,:,:,:) = GPG%INITIAL_CONDITIONS(GPG%DEFAULT_IC(IMESH))%YJ0(IGSPEC)
-      ENDDO
-   ENDIF
-
-   IF (GPG%SOLVE_PRESSURE) THEN
-      G%P  (:,:,:) = GPG%INITIAL_CONDITIONS(GPG%DEFAULT_IC(IMESH))%P_INITIAL
-      G%PN (:,:,:) = GPG%INITIAL_CONDITIONS(GPG%DEFAULT_IC(IMESH))%P_INITIAL
-   ENDIF
-
-   IF (GPG%SOLVE_GAS_ENERGY) THEN
-      G%TG  (:,:,:) = GPG%INITIAL_CONDITIONS(GPG%DEFAULT_IC(IMESH))%TMPG_INITIAL
-      G%TGN (:,:,:) = GPG%INITIAL_CONDITIONS(GPG%DEFAULT_IC(IMESH))%TMPG_INITIAL
-   ENDIF
-
-ENDDO
-
-IF (GPG%ZEROD(ICASE)) RETURN 
-
-!Begin code for masking:
-G%IMASK(:,:,:) = .TRUE.
-
-!========================================================!
-!============ SET GEOMETRY FROM OBST ====================!
-!========================================================!
-
-! Read info from &GPYRO_GEOM. Note that the OBST's specified in the input deck are read in
-! first, and then can be "overwritten" with geometry from the geometry file. 
-VALID_OBSTS = .FALSE.
-DO IOBST = 1, GPG%NOBST 
-   IF (GPG%GEOM(IOBST)%IMESH .NE. IMESH) CYCLE
-   VALID_OBSTS = .TRUE.
-   XB(1)       = GPG%GEOM(IOBST)%X1
-   XB(2)       = GPG%GEOM(IOBST)%X2
-   XB(3)       = GPG%GEOM(IOBST)%Y1
-   XB(4)       = GPG%GEOM(IOBST)%Y2
-   XB(5)       = GPG%GEOM(IOBST)%Z1
-   XB(6)       = GPG%GEOM(IOBST)%Z2
-   ICNUM       = GPG%GEOM(IOBST)%ICNUM
-   SURF_IDX(:) = GPG%GEOM(IOBST)%SURF_IDX(:)
-   CALL SETUP_DETAILED_ICS(.TRUE.,NCELLX,NCELLY,NCELLZ)
-ENDDO
-
-!========================================================!
-!=========== READ GEOMTRY FILE IF PRESENT ===============!
-!========================================================!
-! Check to see if geometry file exists. If it does, read it in.
-GEOMETRY_FILE_EXISTS = .TRUE.
-OPEN(LUINPUT,FILE=TRIM(GPG%GEOMETRY_FILE(IMESH)),FORM='FORMATTED',STATUS='OLD',IOSTAT=IOS)
-IF (IOS .GT. 0) THEN
-   IF (TRIM(GPG%GEOMETRY_FILE(IMESH)) .EQ. 'null') THEN
-      CONTINUE
-   !ELSE
-   !   IF (IGPYRO_TYPE .NE. 3) WRITE(*,*) TRIM(GPG%GEOMETRY_FILE(IMESH)), ' geometry file not found, skipping.'
-   ENDIF
-   GEOMETRY_FILE_EXISTS = .FALSE.
-ENDIF
-
-! Read geometry file
-IF (GEOMETRY_FILE_EXISTS) THEN 
-   N_OBST = 0
-   DO
+   IF (ID_OBST .NE. 0) THEN
+      ICNUM = GPG%GEOM(ID_OBST)%ICNUM
+      SURF_IDX = GPG%GEOM(ID_OBST)%SURF_IDX
+   ELSE ! Use Default mesh values
+      ICNUM  = GPG%DEFAULT_IC(IMESH)
       SURF_IDX(1:6) = GPG%DEFAULT_SURF_IDX(IMESH,1:6)
-      ICNUM         = GPG%DEFAULT_IC(IMESH)
-
-      READ(LUINPUT,NML=OBST,END=1,ERR=2,IOSTAT=IOS)
-      N_OBST = N_OBST + 1
-
-      CALL SETUP_DETAILED_ICS(.TRUE.,NCELLX,NCELLY,NCELLZ)
-
-      2 IF (IOS .GT. 0) THEN
-         WRITE(FOUR,'(I4.4)') N_OBST + 1
-         MESSAGE='ERROR: Problem with OBSTruction number' // FOUR
-         CALL SHUTDOWN_GPYRO(MESSAGE)
-      ENDIF
-   ENDDO 
-   1 REWIND(LUINPUT)
-
-   CLOSE(LUINPUT)
-
-ENDIF !Geometry file exists
-
-! Check to see if orientation file exists. If it does, read it in.
-IF (GEOMETRY_FILE_EXISTS) THEN
-   G%ORIENTATION_FILE_EXISTS = .TRUE.
-   IPOS = SCAN(TRIM(GPG%GEOMETRY_FILE(IMESH)),".", BACK = .TRUE.)
-   G%ORIENTATION_FILE = GPG%GEOMETRY_FILE(IMESH)(1:IPOS) // "ori"
-
-   OPEN(LUINPUT,FILE=TRIM(G%ORIENTATION_FILE),FORM='FORMATTED',STATUS='OLD',IOSTAT=IOS)
-   IF (IOS .GT. 0) THEN
-      IF (IGPYRO_TYPE .NE. 3) WRITE(*,*) TRIM(GPG%GEOMETRY_FILE(IMESH)), ' orientation file not found, skipping.'
-      G%ORIENTATION_FILE_EXISTS = .FALSE.
    ENDIF
-ELSE
-   G%ORIENTATION_FILE_EXISTS = .FALSE. 
-ENDIF
-
-IF (G%ORIENTATION_FILE_EXISTS) THEN
-
-   ALLOCATE (G%ORI       (1:NCELLZ, 1:NCELLX, 1:NCELLY, 1:3, 1:3)); G%ORI     (:,:,:,:,:) = 0D0
-   ALLOCATE (G%K_TENSOR  (1:NCELLZ, 1:NCELLX, 1:NCELLY, 1:3, 1:3)); G%K_TENSOR(:,:,:,:,:) = 0D0
-
-   ! Count number of lines
-   GO     = .TRUE.
-   ICOUNT = 0 
-   DO WHILE (GO)
-      READ(LUINPUT, *, IOSTAT=IOS)
-      IF (IOS .EQ. 0) THEN
-         ICOUNT = ICOUNT + 1
-      ELSE
-         GO = .FALSE.
-      ENDIF  
-   ENDDO
-   ICOUNT = ICOUNT - 1
-
-   REWIND (LUINPUT)
-   READ (LUINPUT,*)
-   DO L = 1, ICOUNT
-
-      READ(LUINPUT,*) ID, I, J, K, A11, A12, A13, A21, A22, A23, A31, A32, A33
-
-      G%ORI(K,I,J,1,1) = A11
-      G%ORI(K,I,J,1,2) = A12
-      G%ORI(K,I,J,1,3) = A13
-
-      G%ORI(K,I,J,2,1) = A21
-      G%ORI(K,I,J,2,2) = A22
-      G%ORI(K,I,J,2,3) = A23
-
-      G%ORI(K,I,J,3,1) = A31
-      G%ORI(K,I,J,3,2) = A32
-      G%ORI(K,I,J,3,3) = A33
-
-      IF (ID .NE. L) THEN
-         WRITE(*,*) 'Problem with orientation file'
-         STOP
-      ENDIF
-
-   ENDDO
-
-   CLOSE(LUINPUT)
-
-ENDIF
-
-! If no geometry info present, assume the entire domain extents are unmasked:
-IF ((.NOT. GEOMETRY_FILE_EXISTS) .AND. (.NOT. VALID_OBSTS)) THEN
-   XB(1)         = 0D0
-   XB(2)         = G%XDIM
-   XB(3)         = 0D0
-   XB(4)         = G%YDIM
-   XB(5)         = 0D0
-   XB(6)         = G%ZDIM
-   ICNUM         = GPG%DEFAULT_IC(IMESH)
-   SURF_IDX(:)   = GPG%DEFAULT_SURF_IDX(IMESH,:) 
-   CALL SETUP_DETAILED_ICS(.TRUE.,NCELLX,NCELLY,NCELLZ)
-ENDIF
-
-
-CONTAINS
-
-! *****************************************************************************
-SUBROUTINE SETUP_DETAILED_ICS(SET_IMASK,NCELLX,NCELLY,NCELLZ)
-! *****************************************************************************
-
-INTEGER, INTENT(IN) :: NCELLX,NCELLY,NCELLZ
-LOGICAL, INTENT(IN) :: SET_IMASK
-
-REAL(EB), DIMENSION(1:NCELLX) :: COORDX1, COORDX2
-REAL(EB), DIMENSION(1:NCELLY) :: COORDY1, COORDY2
-REAL(EB), DIMENSION(1:NCELLZ) :: COORDZ1, COORDZ2
-
-INTEGER :: IX1,IX2,IY1,IY2,IZ1,IZ2
-REAL(EB) :: XB1, XB2, XB3, XB4, XB5, XB6, TARGX1, TARGX2, TARGY1, TARGY2, TARGZ1, TARGZ2
-
-XB1=XB(1)
-XB2=XB(2)
-XB3=XB(3)
-XB4=XB(4)
-XB5=XB(5)
-XB6=XB(6)
-
-IZ1 = 1
-IZ2 = 1
-IX1 = 1
-IX2 = 1
-IY1 = 1
-IY2 = 1
-
-IF (GPG%GEOMETRY_IS_UPSIDE_DOWN) THEN
-   COORDZ1(:) = G%Z(:) - 0.5*G%DLTZN(:,1,1)
-   TARGZ1     = G%ZDIM - XB6 
-   IZ1        = IJK_FROM_XYZ(COORDZ1, NCELLZ, TARGZ1, 1)
-
-   COORDZ2(:) = G%Z(:) + 0.5*G%DLTZN(:,1,1)
-   TARGZ2     = G%ZDIM - XB5 
-   IZ2        = IJK_FROM_XYZ(COORDZ2, NCELLZ, TARGZ2, 2)
-ELSE
-   COORDZ1(:) = G%Z(:) - 0.5*G%DLTZN(:,1,1)
-   TARGZ1     = XB5 
-   IZ1        = IJK_FROM_XYZ(COORDZ1, NCELLZ, TARGZ1, 1)
-
-   COORDZ2(:) = G%Z(:) + 0.5*G%DLTZN(:,1,1)
-   TARGZ2     = XB6
-   IZ2        = IJK_FROM_XYZ(COORDZ2, NCELLZ, TARGZ2, 2)
-ENDIF
-
-IF (NCELLX .GT. 1) THEN 
-   COORDX1(:) = G%X(:) - 0.5*G%DLTX (1,:,1)
-   TARGX1     = XB1 
-   IX1        = IJK_FROM_XYZ(COORDX1, NCELLX, TARGX1, 1)
-
-   COORDX2(:) = G%X(:) + 0.5*G%DLTX (1,:,1)
-   TARGX2     = XB2 
-   IX2        = IJK_FROM_XYZ(COORDX2, NCELLX, TARGX2, 2)
-ENDIF
-
-IF (NCELLX .GT. 1 .AND. NCELLY .GT. 1) THEN
-   COORDY1(:) = G%Y(:) - 0.5*G%DLTY(1,1,:)
-   TARGY1     = XB3 
-   IY1        = IJK_FROM_XYZ(COORDY1, NCELLY, TARGY1, 1)
-
-   COORDY2(:) = G%Y(:) + 0.5*G%DLTY(1,1,:)
-   TARGY2     = XB4 
-   IY2        = IJK_FROM_XYZ(COORDY2, NCELLY, TARGY2, 2)
-ENDIF
-
-IF (SET_IMASK) THEN 
-   G%IMASK(IZ1:IZ2,IX1:IX2,IY1:IY2) = .FALSE. ! Cells not masked
-ENDIF
-
-
-IF (SURF_IDX(5) .GT. 0) G%SURF_IDX_BCT(IZ1:IZ2,IX1:IX2,IY1:IY2) = SURF_IDX(5)
-IF (SURF_IDX(6) .GT. 0) G%SURF_IDX_BCB(IZ1:IZ2,IX1:IX2,IY1:IY2) = SURF_IDX(6)
-IF (SURF_IDX(1) .GT. 0) G%SURF_IDX_BCW(IZ1:IZ2,IX1:IX2,IY1:IY2) = SURF_IDX(1)
-IF (SURF_IDX(2) .GT. 0) G%SURF_IDX_BCE(IZ1:IZ2,IX1:IX2,IY1:IY2) = SURF_IDX(2)
-IF (SURF_IDX(3) .GT. 0) G%SURF_IDX_BCS(IZ1:IZ2,IX1:IX2,IY1:IY2) = SURF_IDX(3)
-IF (SURF_IDX(4) .GT. 0) G%SURF_IDX_BCN(IZ1:IZ2,IX1:IX2,IY1:IY2) = SURF_IDX(4)
-
-IF (ICNUM .GT. 0) THEN
-
-   G%TPN(IZ1:IZ2,IX1:IX2,IY1:IY2) = GPG%INITIAL_CONDITIONS(ICNUM)%TMP_INITIAL
-   G%TP (IZ1:IZ2,IX1:IX2,IY1:IY2) = GPG%INITIAL_CONDITIONS(ICNUM)%TMP_INITIAL
-
-   GPBCP(IZ1:IZ2,IX1:IX2,IY1:IY2,:)%T_SURFACE_OLD = GPG%INITIAL_CONDITIONS(ICNUM)%TMP_INITIAL
-   GPBCP(IZ1:IZ2,IX1:IX2,IY1:IY2,:)%T_SURFACE     = GPG%INITIAL_CONDITIONS(ICNUM)%TMP_INITIAL
+   
+   G%TPN(IZ,IX,IY) = GPG%INITIAL_CONDITIONS(ICNUM)%TMP_INITIAL
+   G%TP (IZ,IX,IY) = GPG%INITIAL_CONDITIONS(ICNUM)%TMP_INITIAL
 
    DO ISPEC = 1, SPROP%NSSPEC
-      G%YIN(ISPEC,IZ1:IZ2,IX1:IX2,IY1:IY2) = GPG%INITIAL_CONDITIONS(ICNUM)%YI0(ISPEC)
-      G%YI (ISPEC,IZ1:IZ2,IX1:IX2,IY1:IY2) = GPG%INITIAL_CONDITIONS(ICNUM)%YI0(ISPEC)
+      G%YIN(ISPEC,IZ,IX,IY) = GPG%INITIAL_CONDITIONS(ICNUM)%YI0(ISPEC)
+      G%YI (ISPEC,IZ,IX,IY) = GPG%INITIAL_CONDITIONS(ICNUM)%YI0(ISPEC)
    ENDDO
 
    IF (GPG%NEED_GAS_YJ) THEN
       DO IGSPEC = 1, GPROP%NGSPEC
-         G%YJGN(IGSPEC,IZ1:IZ2,IX1:IX2,IY1:IY2) = GPG%INITIAL_CONDITIONS(ICNUM)%YJ0(IGSPEC)
-         G%YJG (IGSPEC,IZ1:IZ2,IX1:IX2,IY1:IY2) = GPG%INITIAL_CONDITIONS(ICNUM)%YJ0(IGSPEC)
+         G%YJGN(IGSPEC,IZ,IX,IY) = GPG%INITIAL_CONDITIONS(ICNUM)%YJ0(IGSPEC)
+         G%YJG (IGSPEC,IZ,IX,IY) = GPG%INITIAL_CONDITIONS(ICNUM)%YJ0(IGSPEC)
       ENDDO
    ENDIF
 
    IF (GPG%SOLVE_PRESSURE) THEN
-      G%PN (IZ1:IZ2,IX1:IX2,IY1:IY2) = GPG%INITIAL_CONDITIONS(ICNUM)%P_INITIAL
-      G%P  (IZ1:IZ2,IX1:IX2,IY1:IY2) = GPG%INITIAL_CONDITIONS(ICNUM)%P_INITIAL
+      G%PN (IZ,IX,IY) = GPG%INITIAL_CONDITIONS(ICNUM)%P_INITIAL
+      G%P  (IZ,IX,IY) = GPG%INITIAL_CONDITIONS(ICNUM)%P_INITIAL
    ENDIF
 
    IF (GPG%SOLVE_GAS_ENERGY) THEN
-      G%HGN(IZ1:IZ2,IX1:IX2,IY1:IY2) = GPG%INITIAL_CONDITIONS(ICNUM)%TMPG_INITIAL
-      G%HG (IZ1:IZ2,IX1:IX2,IY1:IY2) = GPG%INITIAL_CONDITIONS(ICNUM)%TMPG_INITIAL
+      G%HGN(IZ,IX,IY) = GPG%INITIAL_CONDITIONS(ICNUM)%TMPG_INITIAL
+      G%HG (IZ,IX,IY) = GPG%INITIAL_CONDITIONS(ICNUM)%TMPG_INITIAL
    ENDIF
-ENDIF
+ENDDO
+ENDDO
+ENDDO
+!$OMP END PARALLEL DO
+
 
 ! *****************************************************************************
 END SUBROUTINE SETUP_DETAILED_ICS
 ! *****************************************************************************
 
-!******************************************************************************	
-END SUBROUTINE APPLY_GEOMETRY_TO_GRID
-!******************************************************************************	
 
-
-!******************************************************************************	
+!******************************************************************************
 SUBROUTINE INIT_BOUNDARY_CELLS(IMESH)
-!******************************************************************************	
+!******************************************************************************
 
 INTEGER, INTENT(IN) :: IMESH
 INTEGER :: IZ,IX,IY,NCELLZ,NCELLX,NCELLY
 INTEGER :: ICOUNT
+TYPE (GPYRO_MESH_TYPE), POINTER :: M
 
-NCELLZ = G%NCELLZ
-NCELLX = G%NCELLX
-NCELLY = G%NCELLY
+G => GPM(IMESH)
+M => G%MESH
 
-IF (.NOT. G%HALF_CELLS_AT_BC) THEN
+NCELLZ = M%NCELLZ
+NCELLX = M%NCELLX
+NCELLY = M%NCELLY
+
+IF (.NOT. M%HALF_CELLS_AT_BC) THEN
    ! Mask the Gost cells
-   IF (NCELLZ .GT. 1) G%IMASK(1     ,:,:) = .TRUE.
-   IF (NCELLZ .GT. 1) G%IMASK(NCELLZ,:,:) = .TRUE.
-   IF (NCELLX .GT. 1) G%IMASK(:,1     ,:) = .TRUE.
-   IF (NCELLX .GT. 1) G%IMASK(:,NCELLX,:) = .TRUE.
-   IF (NCELLY .GT. 1) G%IMASK(:,:,1     ) = .TRUE.
-   IF (NCELLY .GT. 1) G%IMASK(:,:,NCELLY) = .TRUE.
+   IF (NCELLZ .GT. 1) M%IMASK(1     ,:,:) = .TRUE.
+   IF (NCELLZ .GT. 1) M%IMASK(NCELLZ,:,:) = .TRUE.
+   IF (NCELLX .GT. 1) M%IMASK(:,1     ,:) = .TRUE.
+   IF (NCELLX .GT. 1) M%IMASK(:,NCELLX,:) = .TRUE.
+   IF (NCELLY .GT. 1) M%IMASK(:,:,1     ) = .TRUE.
+   IF (NCELLY .GT. 1) M%IMASK(:,:,NCELLY) = .TRUE.
 ENDIF
 
 ! Determine cells that need boundary conditions.
@@ -2252,16 +832,16 @@ ICOUNT = 0
 DO IY = 1, NCELLY
 DO IX = 1, NCELLX
 DO IZ = 2, NCELLZ-1
-   IF ((.NOT. G%IMASK(IZ,IX,IY)) .AND. G%IMASK(IZ-1,IX,IY))  ICOUNT = ICOUNT +1
-   IF ((.NOT. G%IMASK(IZ,IX,IY)) .AND. G%IMASK(IZ+1,IX,IY))  ICOUNT = ICOUNT +1
+   IF ((.NOT. M%IMASK(IZ,IX,IY)) .AND. M%IMASK(IZ-1,IX,IY))  ICOUNT = ICOUNT +1
+   IF ((.NOT. M%IMASK(IZ,IX,IY)) .AND. M%IMASK(IZ+1,IX,IY))  ICOUNT = ICOUNT +1
 ENDDO
 ENDDO
 ENDDO
 !z-edges
 DO IY = 1, NCELLY
 DO IX = 1, NCELLX
-   IZ=1     ; IF(.NOT. G%IMASK(IZ,IX,IY) ) ICOUNT = ICOUNT +1
-   IZ=NCELLZ; IF(.NOT. G%IMASK(IZ,IX,IY) ) ICOUNT = ICOUNT +1
+   IZ=1     ; IF(.NOT. M%IMASK(IZ,IX,IY) ) ICOUNT = ICOUNT +1
+   IZ=NCELLZ; IF(.NOT. M%IMASK(IZ,IX,IY) ) ICOUNT = ICOUNT +1
 ENDDO
 ENDDO
 
@@ -2270,16 +850,16 @@ IF (NCELLX .GT. 1) THEN
    DO IY = 1, NCELLY
    DO IX = 2, NCELLX-1
    DO IZ = 1, NCELLZ
-      IF ((.NOT. G%IMASK(IZ,IX,IY)) .AND. G%IMASK(IZ,IX-1,IY)) ICOUNT = ICOUNT +1
-      IF ((.NOT. G%IMASK(IZ,IX,IY)) .AND. G%IMASK(IZ,IX+1,IY)) ICOUNT = ICOUNT +1
+      IF ((.NOT. M%IMASK(IZ,IX,IY)) .AND. M%IMASK(IZ,IX-1,IY)) ICOUNT = ICOUNT +1
+      IF ((.NOT. M%IMASK(IZ,IX,IY)) .AND. M%IMASK(IZ,IX+1,IY)) ICOUNT = ICOUNT +1
    ENDDO
    ENDDO
    ENDDO
    !x-edges
    DO IY = 1, NCELLY
    DO IZ = 1, NCELLZ
-      IX=1     ; IF(.NOT. G%IMASK(IZ,IX,IY) ) ICOUNT = ICOUNT +1
-      IX=NCELLX; IF(.NOT. G%IMASK(IZ,IX,IY) ) ICOUNT = ICOUNT +1
+      IX=1     ; IF(.NOT. M%IMASK(IZ,IX,IY) ) ICOUNT = ICOUNT +1
+      IX=NCELLX; IF(.NOT. M%IMASK(IZ,IX,IY) ) ICOUNT = ICOUNT +1
    ENDDO
    ENDDO
 ENDIF
@@ -2289,16 +869,16 @@ IF (NCELLY .GT. 1) THEN
    DO IY = 2, NCELLY-1
    DO IX = 1, NCELLX
    DO IZ = 1, NCELLZ
-      IF ((.NOT. G%IMASK(IZ,IX,IY)) .AND. G%IMASK(IZ,IX,IY-1)) ICOUNT = ICOUNT +1
-      IF ((.NOT. G%IMASK(IZ,IX,IY)) .AND. G%IMASK(IZ,IX,IY+1)) ICOUNT = ICOUNT +1
+      IF ((.NOT. M%IMASK(IZ,IX,IY)) .AND. M%IMASK(IZ,IX,IY-1)) ICOUNT = ICOUNT +1
+      IF ((.NOT. M%IMASK(IZ,IX,IY)) .AND. M%IMASK(IZ,IX,IY+1)) ICOUNT = ICOUNT +1
    ENDDO
    ENDDO
    ENDDO
    !y-edges
    DO IX = 1, NCELLX
    DO IZ = 1, NCELLZ
-      IY=1     ; IF(.NOT. G%IMASK(IZ,IX,IY) ) ICOUNT = ICOUNT +1
-      IY=NCELLY; IF(.NOT. G%IMASK(IZ,IX,IY) ) ICOUNT = ICOUNT +1
+      IY=1     ; IF(.NOT. M%IMASK(IZ,IX,IY) ) ICOUNT = ICOUNT +1
+      IY=NCELLY; IF(.NOT. M%IMASK(IZ,IX,IY) ) ICOUNT = ICOUNT +1
    ENDDO
    ENDDO
 ENDIF
@@ -2313,8 +893,8 @@ ICOUNT=0
 DO IY = 1, NCELLY
 DO IX = 1, NCELLX
 DO IZ = 2, NCELLZ-1
-   IF ((.NOT. G%IMASK(IZ,IX,IY)) .AND. G%IMASK(IZ-1,IX,IY))  CALL INIT_BOUNDARY(ICOUNT,IMESH,IZ,IX,IY, 3,G%NEEDSBCT(IZ,IX,IY))
-   IF ((.NOT. G%IMASK(IZ,IX,IY)) .AND. G%IMASK(IZ+1,IX,IY))  CALL INIT_BOUNDARY(ICOUNT,IMESH,IZ,IX,IY,-3,G%NEEDSBCB(IZ,IX,IY))
+   IF ((.NOT. M%IMASK(IZ,IX,IY)) .AND. M%IMASK(IZ-1,IX,IY))  CALL INIT_BOUNDARY(ICOUNT,IMESH,IZ,IX,IY, 3,G%NEEDSBCT(IZ,IX,IY))
+   IF ((.NOT. M%IMASK(IZ,IX,IY)) .AND. M%IMASK(IZ+1,IX,IY))  CALL INIT_BOUNDARY(ICOUNT,IMESH,IZ,IX,IY,-3,G%NEEDSBCB(IZ,IX,IY))
 ENDDO
 ENDDO
 ENDDO
@@ -2324,8 +904,8 @@ IF (NCELLX .GT. 1) THEN
    DO IY = 1, NCELLY
    DO IX = 2, NCELLX-1
    DO IZ = 1, NCELLZ
-      IF ((.NOT. G%IMASK(IZ,IX,IY)) .AND. G%IMASK(IZ,IX-1,IY)) CALL INIT_BOUNDARY(ICOUNT,IMESH,IZ,IX,IY,-1,G%NEEDSBCW(IZ,IX,IY))
-      IF ((.NOT. G%IMASK(IZ,IX,IY)) .AND. G%IMASK(IZ,IX+1,IY)) CALL INIT_BOUNDARY(ICOUNT,IMESH,IZ,IX,IY, 1,G%NEEDSBCE(IZ,IX,IY))
+      IF ((.NOT. M%IMASK(IZ,IX,IY)) .AND. M%IMASK(IZ,IX-1,IY)) CALL INIT_BOUNDARY(ICOUNT,IMESH,IZ,IX,IY,-1,G%NEEDSBCW(IZ,IX,IY))
+      IF ((.NOT. M%IMASK(IZ,IX,IY)) .AND. M%IMASK(IZ,IX+1,IY)) CALL INIT_BOUNDARY(ICOUNT,IMESH,IZ,IX,IY, 1,G%NEEDSBCE(IZ,IX,IY))
    ENDDO
    ENDDO
    ENDDO
@@ -2336,8 +916,8 @@ IF (NCELLY .GT. 1) THEN
 DO IY = 2, NCELLY-1
 DO IX = 1, NCELLX
 DO IZ = 1, NCELLZ
-   IF ((.NOT. G%IMASK(IZ,IX,IY)) .AND. G%IMASK(IZ,IX,IY-1)) CALL INIT_BOUNDARY(ICOUNT,IMESH,IZ,IX,IY,-2,G%NEEDSBCS(IZ,IX,IY))
-   IF ((.NOT. G%IMASK(IZ,IX,IY)) .AND. G%IMASK(IZ,IX,IY+1)) CALL INIT_BOUNDARY(ICOUNT,IMESH,IZ,IX,IY, 2,G%NEEDSBCN(IZ,IX,IY))
+   IF ((.NOT. M%IMASK(IZ,IX,IY)) .AND. M%IMASK(IZ,IX,IY-1)) CALL INIT_BOUNDARY(ICOUNT,IMESH,IZ,IX,IY,-2,G%NEEDSBCS(IZ,IX,IY))
+   IF ((.NOT. M%IMASK(IZ,IX,IY)) .AND. M%IMASK(IZ,IX,IY+1)) CALL INIT_BOUNDARY(ICOUNT,IMESH,IZ,IX,IY, 2,G%NEEDSBCN(IZ,IX,IY))
 ENDDO
 ENDDO
 ENDDO
@@ -2346,16 +926,16 @@ ENDIF
 !Now do edges:
 DO IY = 1, NCELLY
 DO IX = 1, NCELLX
-   IZ=1     ; IF(.NOT. G%IMASK(IZ,IX,IY) ) CALL INIT_BOUNDARY(ICOUNT,IMESH,IZ,IX,IY, 3,G%NEEDSBCT(IZ,IX,IY))
-   IZ=NCELLZ; IF(.NOT. G%IMASK(IZ,IX,IY) ) CALL INIT_BOUNDARY(ICOUNT,IMESH,IZ,IX,IY,-3,G%NEEDSBCB(IZ,IX,IY))
+   IZ=1     ; IF(.NOT. M%IMASK(IZ,IX,IY) ) CALL INIT_BOUNDARY(ICOUNT,IMESH,IZ,IX,IY, 3,G%NEEDSBCT(IZ,IX,IY))
+   IZ=NCELLZ; IF(.NOT. M%IMASK(IZ,IX,IY) ) CALL INIT_BOUNDARY(ICOUNT,IMESH,IZ,IX,IY,-3,G%NEEDSBCB(IZ,IX,IY))
 ENDDO
 ENDDO
 
 IF (NCELLX .GT. 1) THEN
    DO IY = 1, NCELLY
    DO IZ = 1, NCELLZ
-      IX=1     ; IF(.NOT. G%IMASK(IZ,IX,IY) ) CALL INIT_BOUNDARY(ICOUNT,IMESH,IZ,IX,IY,-1,G%NEEDSBCW(IZ,IX,IY))
-      IX=NCELLX; IF(.NOT. G%IMASK(IZ,IX,IY) ) CALL INIT_BOUNDARY(ICOUNT,IMESH,IZ,IX,IY, 1,G%NEEDSBCE(IZ,IX,IY))
+      IX=1     ; IF(.NOT. M%IMASK(IZ,IX,IY) ) CALL INIT_BOUNDARY(ICOUNT,IMESH,IZ,IX,IY,-1,G%NEEDSBCW(IZ,IX,IY))
+      IX=NCELLX; IF(.NOT. M%IMASK(IZ,IX,IY) ) CALL INIT_BOUNDARY(ICOUNT,IMESH,IZ,IX,IY, 1,G%NEEDSBCE(IZ,IX,IY))
    ENDDO
    ENDDO
 ENDIF
@@ -2363,8 +943,8 @@ ENDIF
 IF (NCELLY .GT. 1) THEN
    DO IX = 1, NCELLX
    DO IZ = 1, NCELLZ
-      IY=1     ; IF(.NOT. G%IMASK(IZ,IX,IY) ) CALL INIT_BOUNDARY(ICOUNT,IMESH,IZ,IX,IY,-2,G%NEEDSBCS(IZ,IX,IY))
-      IY=NCELLY; IF(.NOT. G%IMASK(IZ,IX,IY) ) CALL INIT_BOUNDARY(ICOUNT,IMESH,IZ,IX,IY, 2,G%NEEDSBCN(IZ,IX,IY))
+      IY=1     ; IF(.NOT. M%IMASK(IZ,IX,IY) ) CALL INIT_BOUNDARY(ICOUNT,IMESH,IZ,IX,IY,-2,G%NEEDSBCS(IZ,IX,IY))
+      IY=NCELLY; IF(.NOT. M%IMASK(IZ,IX,IY) ) CALL INIT_BOUNDARY(ICOUNT,IMESH,IZ,IX,IY, 2,G%NEEDSBCN(IZ,IX,IY))
    ENDDO
    ENDDO
 ENDIF
@@ -2375,34 +955,54 @@ CONTAINS
 ! *****************************************************************************
 SUBROUTINE INIT_BOUNDARY(ICOUNTP,IMESHP,IZP,IXP,IYP,IORP,NEEDSBC)
 ! *****************************************************************************
-
-
 INTEGER, INTENT(INOUT) :: ICOUNTP
 INTEGER, INTENT(IN) :: IMESHP, IZP, IXP, IYP, IORP
 LOGICAL, INTENT(OUT) :: NEEDSBC
 REAL(EB) :: ZGPYRO, XGPYRO, YGPYRO
 LOGICAL :: COMPLETE_CELL_AT_BC
+INTEGER :: ID_OBST, ICNUM
+INTEGER :: SURF_IDX(1:6)
+INTEGER :: ID_SURF
+
 G => GPM(IMESHP)
+ID_OBST = M%ID_OBST(IZP,IXP,IYP)
+
+IF (ID_OBST .NE. 0) THEN
+   SURF_IDX = GPG%GEOM(ID_OBST)%SURF_IDX
+   ICNUM    = GPG%GEOM(ID_OBST)%ICNUM
+ELSE ! Use Default mesh values
+   SURF_IDX(1:6) = GPG%DEFAULT_SURF_IDX(IMESHP,1:6)
+   ICNUM         = GPG%DEFAULT_IC(IMESHP)
+ENDIF
+
+SELECT CASE(IORP)
+   CASE( 3) ; ID_SURF = SURF_IDX(5)   ! Top
+   CASE(-3) ; ID_SURF = SURF_IDX(6)   ! Bottom
+   CASE(-1) ; ID_SURF = SURF_IDX(1)   ! West
+   CASE( 1) ; ID_SURF = SURF_IDX(2)   ! East
+   CASE( 2) ; ID_SURF = SURF_IDX(4)   ! North
+   CASE(-2) ; ID_SURF = SURF_IDX(3)   ! South
+END SELECT
+
 
 IF (ABS(IORP) .EQ. 1) THEN
-   XGPYRO = G%X0 + G%X(IXP)
-   ZGPYRO = G%Z0 + G%ZDIM - G%Z(IZP)
-   YGPYRO = G%Y0 + G%Y(IYP)
-   COMPLETE_CELL_AT_BC = .NOT. (IXP == 1 .OR. IXP == G%NCELLX)
+   XGPYRO = M%X0 + M%X(IXP)
+   ZGPYRO = M%Z0 + M%ZDIM - M%Z(IZP,IXP,IYP)
+   YGPYRO = M%Y0 + M%Y(IYP)
+   COMPLETE_CELL_AT_BC = .NOT. (IXP == 1 .OR. IXP == M%NCELLX)
 ENDIF
 
 IF (ABS(IORP) .EQ. 2) THEN
-   YGPYRO = G%Y0 + G%Y(IYP)
-   ZGPYRO = G%Z0 + G%ZDIM - G%Z(IZP)
-   XGPYRO = G%X0 + G%X(IXP)
-   COMPLETE_CELL_AT_BC = .NOT. (IYP == 1 .OR. IYP == G%NCELLY)
-
+   YGPYRO = M%Y0 + M%Y(IYP)
+   ZGPYRO = M%Z0 + M%ZDIM - M%Z(IZP,IXP,IYP)
+   XGPYRO = M%X0 + M%X(IXP)
+   COMPLETE_CELL_AT_BC = .NOT. (IYP == 1 .OR. IYP == M%NCELLY)
 ENDIF
 
 IF (ABS(IORP) .EQ. 3) THEN
-   ZGPYRO = G%Z0 - G%Z(IZP) + G%ZDIM 
-   YGPYRO = G%Y0 + G%Y(IYP)
-   XGPYRO = G%X0 + G%X(IXP)
+   ZGPYRO = M%Z0 - M%Z(IZP,IXP,IYP) + M%ZDIM 
+   YGPYRO = M%Y0 + M%Y(IYP)
+   XGPYRO = M%X0 + M%X(IXP)
    COMPLETE_CELL_AT_BC = .NOT. (IZP == 1 .OR. IZP == NCELLZ)
 ENDIF
 
@@ -2415,16 +1015,21 @@ GP_BOUDARYS(IMESHP)%IOR_GPYRO   (ICOUNTP) = IORP
 GP_BOUDARYS(IMESHP)%Z_GPYRO     (ICOUNTP) = ZGPYRO
 GP_BOUDARYS(IMESHP)%X_GPYRO     (ICOUNTP) = XGPYRO
 GP_BOUDARYS(IMESHP)%Y_GPYRO     (ICOUNTP) = YGPYRO
+GP_BOUDARYS(IMESHP)%SURF_IDX    (ICOUNTP) = ID_SURF
 GP_BOUDARYS(IMESHP)%COMPLETE_CELL_AT_BC(ICOUNTP)= COMPLETE_CELL_AT_BC
+
+GP_BOUDARYS(IMESHP)%GPBC(ICOUNTP)%T_SURFACE_OLD = GPG%INITIAL_CONDITIONS(ICNUM)%TMP_INITIAL
+GP_BOUDARYS(IMESHP)%GPBC(ICOUNTP)%T_SURFACE     = GPG%INITIAL_CONDITIONS(ICNUM)%TMP_INITIAL
+
 NEEDSBC                      = .TRUE. 
 
 ! *****************************************************************************
 END SUBROUTINE INIT_BOUNDARY
 ! *****************************************************************************
 
-!******************************************************************************	
+!******************************************************************************
 END SUBROUTINE INIT_BOUNDARY_CELLS
-!******************************************************************************	
+!******************************************************************************
 
 
 
@@ -2436,12 +1041,14 @@ INTEGER, INTENT(IN) :: IMESH
 INTEGER :: NCELLZ, NCELLX, NCELLY, NSSPEC
 INTEGER :: IZ, IX, IY, ISPEC
 REAL(EB) :: HI, MWGN,RSUMYI
+TYPE (GPYRO_MESH_TYPE), POINTER :: M
 
-G=>GPM(IMESH)
+G => GPM(IMESH)
+M => G%MESH
 
-NCELLZ = G%NCELLZ
-NCELLX = G%NCELLX
-NCELLY = G%NCELLY
+NCELLZ = M%NCELLZ
+NCELLX = M%NCELLX
+NCELLY = M%NCELLY
 NSSPEC = SPROP%NSSPEC
 
 
@@ -2480,38 +1087,35 @@ DO IZ = 1, NCELLZ
    G%RPN (IZ,IX,IY)   = G%RP (IZ,IX,IY)
    G%XIN (:,IZ,IX,IY) = G%XI (:,IZ,IX,IY)
 
-   ! Calculate rho*D
-   G%RDLTZ (IZ,IX,IY) = G%RP   (IZ,IX,IY) * G%DLTZ(IZ,IX,IY)
-   G%RDLTZN(IZ,IX,IY) = G%RDLTZ(IZ,IX,IY)
+   ! Calculate MASS
+   G%MASS  (IZ,IX,IY) = G%RP   (IZ,IX,IY) * M%DV(IZ,IX,IY)
+   G%MASS_N(IZ,IX,IY) = G%MASS(IZ,IX,IY)
 
    ! Setup for TGA simulation
    IF (NCELLZ .EQ. 1) THEN
-      G%DLTZ(IZ,IX,IY)   = 1D0/G%RP(IZ,IX,IY)
-      G%DLTZN(IZ,IX,IY)  = G%DLTZ(IZ,IX,IY)
-      G%RDLTZ(IZ,IX,IY)  = G%RP(IZ,IX,IY) * G%DLTZ(IZ,IX,IY)
-      G%RDLTZN(IZ,IX,IY) = G%RDLTZ(IZ,IX,IY)
-      G%IMASK(IZ,IX,IY) = .FALSE.
+      M%DZ(IZ,IX,IY)   = 1D0/G%RP(IZ,IX,IY)
+      M%DZN(IZ,IX,IY)  = M%DZ(IZ,IX,IY)
+      G%MASS(IZ,IX,IY)  = G%RP(IZ,IX,IY) * M%DZ(IZ,IX,IY)
+      G%MASS_N(IZ,IX,IY) = G%MASS(IZ,IX,IY)
+      M%IMASK(IZ,IX,IY) = .FALSE.
    ENDIF
 
-   ! Calculate rho*Yi*Dz
+   ! Calculate mass of species i
    DO ISPEC = 1, NSSPEC
-      G%RYIDZP(ISPEC,IZ,IX,IY) = G%RDLTZ(IZ,IX,IY) * G%YI(ISPEC,IZ,IX,IY)
+      G%MASS_I      (ISPEC,IZ,IX,IY) = G%MASS(IZ,IX,IY) * G%YI(ISPEC,IZ,IX,IY)
+      G%INITIAL_MASS(ISPEC,IZ,IX,IY) = G%MASS_I(ISPEC,IZ,IX,IY)
+      G%MASS_IN     (ISPEC,IZ,IX,IY) = G%MASS_I(ISPEC,IZ,IX,IY)
    ENDDO
-   G%RYIDZPN(:,IZ,IX,IY) = G%RYIDZP(:,IZ,IX,IY)
+   G%INITIAL_MASS(0,IZ,IX,IY) = G%MASS(IZ,IX,IY)
 
-   ! Calculate initial mass of each species in each cell
-   DO ISPEC = 1, NSSPEC
-      G%RYIDZ0(ISPEC,IZ,IX,IY) = G%RP(IZ,IX,IY)*G%YI(ISPEC,IZ,IX,IY)*G%DLTZ(IZ,IX,IY)
-   ENDDO
-   G%RYIDZ0(0,IZ,IX,IY) = G%RP(IZ,IX,IY)*G%DLTZ(IZ,IX,IY)
-   ! Initialize rho*Yi*Dz sigma (star)	     
-   G%RYIDZSIGMA (:,IZ,IX,IY) = G%RYIDZ0(1:NSSPEC,IZ,IX,IY)
-   G%RYIDZSIGMAN(:,IZ,IX,IY) = G%RYIDZ0(1:NSSPEC,IZ,IX,IY)
+   ! Initialize TIME_INTEGRATED_MASS_PRODUCED (star)	     
+   G%TIME_INTEGRATED_MASS_PRODUCED (:,IZ,IX,IY) = G%INITIAL_MASS(1:NSSPEC,IZ,IX,IY)
+   G%TIME_INTEGRATED_MASS_PRODUCEDN(:,IZ,IX,IY) = G%INITIAL_MASS(1:NSSPEC,IZ,IX,IY)
 
    IF (GPG%CONVENTIONAL_RXN_ORDER) THEN
       DO ISPEC = 1, NSSPEC
-         G%RYIDZSIGMA (ISPEC,IZ,IX,IY) = G%RDLTZ(IZ,IX,IY)
-         G%RYIDZSIGMAN(ISPEC,IZ,IX,IY) = G%RDLTZ(IZ,IX,IY)
+         G%TIME_INTEGRATED_MASS_PRODUCED (ISPEC,IZ,IX,IY) = G%MASS(IZ,IX,IY)
+         G%TIME_INTEGRATED_MASS_PRODUCEDN(ISPEC,IZ,IX,IY) = G%MASS(IZ,IX,IY)
       ENDDO
    ENDIF
          
@@ -2537,53 +1141,48 @@ DO IZ = 1, NCELLZ
       ENDDO
    ENDIF
 
+   IF (GPG%SOLVE_GAS_YJ .OR. GPG%SOLVE_PRESSURE) THEN
+      IF (GPG%SOLVE_GAS_YJ) THEN
+         G%M(IZ,IX,IY)= 0D0
+         DO ISPEC = 1, GPROP%NGSPEC
+            G%M(IZ,IX,IY)= G%M(IZ,IX,IY) + G%YJG(ISPEC,IZ,IX,IY) * GPROP%M(ISPEC)
+         ENDDO
+         G%MN(IZ,IX,IY)= G%M(IZ,IX,IY)
+      ELSE 
+         G%M(IZ,IX,IY)= GPROP%M(1)
+         G%MN(IZ,IX,IY)= G%M(IZ,IX,IY)
+      ENDIF
 
-   ! Initialize gas-phase quantities
-   IF (GPG%SOLVE_GAS_YJ) THEN   
-      MWGN = 0D0 
-      DO ISPEC = 1, GPROP%NGSPEC
-         MWGN = MWGN + G%YJG(ISPEC,IZ,IX,IY) / GPROP%M(ISPEC)
-      ENDDO
-      MWGN = 1D0 / MWGN !Mean molecular weight
-      ! Set hydrostatic pressure if gravity is present
       IF (GPG%SOLVE_PRESSURE) THEN
-         G%RGN(IZ,IX,IY) = RHOGOFT(G%PN(IZ,IX,IY), MWGN, G%TPN(IZ,IX,IY))
-         G%RG (IZ,IX,IY) = G%RGN(IZ,IX,IY)
+         DO ISPEC = 1, NSSPEC
+            IF (NCELLZ .GT.0) G%PERMZ(IZ,IX,IY) = G%PERMZ(IZ,IX,IY) + G%XI(ISPEC,IZ,IX,IY)*SPROP%PERMZ(ISPEC)
+            IF (NCELLX .GT.0) G%PERMX(IZ,IX,IY) = G%PERMX(IZ,IX,IY) + G%XI(ISPEC,IZ,IX,IY)*SPROP%PERMX(ISPEC)
+            IF (NCELLY .GT.0) G%PERMY(IZ,IX,IY) = G%PERMY(IZ,IX,IY) + G%XI(ISPEC,IZ,IX,IY)*SPROP%PERMY(ISPEC)
+         ENDDO
+         !Set Hydrostatic pressure if gravity is present
+         IF (G%GZ .NE. 0D0) G%P(IZ,IX,IY) = G%P(IZ,IX,IY) + GPG%RHOINF*G%GZ*M%Z(IZ,IX,IY)
+         IF (G%GX .NE. 0D0) G%P(IZ,IX,IY) = G%P(IZ,IX,IY) + GPG%RHOINF*G%GX*M%X(IX)
+         IF (G%GY .NE. 0D0) G%P(IZ,IX,IY) = G%P(IZ,IX,IY) + GPG%RHOINF*G%GY*M%Y(IY)
+         G%PN (IZ,IX,IY) = G%P(IZ,IX,IY)
 
-         IF (G%GZ .NE. 0D0) THEN
-            G%P (IZ,IX,IY) = G%P(IZ,IX,IY) + GPG%RHOINF*G%GZ*G%Z(IZ)
-            G%PN(IZ,IX,IY) = G%P(IZ,IX,IY)
-         ENDIF
-         IF (G%GX .NE. 0D0) THEN
-            G%P (IZ,IX,IY) = G%P(IZ,IX,IY) + GPG%RHOINF*G%GX*G%X(IX)
-            G%PN(IZ,IX,IY) = G%P(IZ,IX,IY)
-         ENDIF
-         IF (G%GY .NE. 0D0) THEN
-            G%P (IZ,IX,IY) = G%P(IZ,IX,IY) + GPG%RHOINF*G%GY*G%Y(IY)
-            G%PN(IZ,IX,IY) = G%P(IZ,IX,IY)
-         ENDIF
+         G%RGN(IZ,IX,IY) = RHOGOFT(G%PN(IZ,IX,IY),G%M(IZ,IX,IY), G%TPN(IZ,IX,IY))
+         G%RG (IZ,IX,IY) = G%RGN(IZ,IX,IY)
       ELSE
-         G%RG (IZ,IX,IY) = RHOGOFT(GPG%P0, MWGN, G%TPN(IZ,IX,IY))
+         G%RG (IZ,IX,IY) = RHOGOFT(GPG%P0, G%M(IZ,IX,IY), G%TPN(IZ,IX,IY))
          G%RGN(IZ,IX,IY) = G%RG(IZ,IX,IY)
       ENDIF
-                           
-      IF (GPG%SOLVE_GAS_ENERGY) THEN
 
-         G%TG (IZ,IX,IY) = G%TP(IZ,IX,IY) !Gas temperature
-         G%TGN(IZ,IX,IY) = G%TG(IZ,IX,IY) 
-                  
-         G%HG (IZ,IX,IY) = GPROP%CPG * (G%TG(IZ,IX,IY)-GPG%TDATUM) !Gas enthalpy
-         G%HGN(IZ,IX,IY) = G%HG(IZ,IX,IY)
-      ENDIF
-
-   ENDIF !SOLVE_GAS_YJ 
-
-   IF (GPG%SOLVE_PRESSURE) THEN
-      DO ISPEC = 1, NSSPEC
-         G%PERMZ(IZ,IX,IY) = G%PERMZ(IZ,IX,IY) + G%XI(ISPEC,IZ,IX,IY)*SPROP%PERMZ(ISPEC)
-      ENDDO
    ENDIF
- 
+
+   IF (GPG%SOLVE_GAS_ENERGY) THEN
+
+      G%TG (IZ,IX,IY) = G%TP(IZ,IX,IY) !Gas temperature
+      G%TGN(IZ,IX,IY) = G%TG(IZ,IX,IY) 
+
+      G%HG (IZ,IX,IY) = GPROP%CPG * (G%TG(IZ,IX,IY)-GPG%TDATUM) !Gas enthalpy
+      G%HGN(IZ,IX,IY) = G%HG(IZ,IX,IY)
+   ENDIF
+
 
    IF (GPG%SOLVE_POROSITY) THEN
       RSUMYI = 0D0
@@ -2604,7 +1203,7 @@ ENDDO !IY
 
 
 !Record initial mass in mesh:
-G%INITIAL_MASS = TOTAL_MASS(0)
+G%TOTAL_INITIAL_MASS = TOTAL_MASS(0)
 
 GPG%MAXTMP = MAXVAL(G%TPN(:,:,:))
 IF (GPG%SOLVE_GAS_ENERGY .AND. (.NOT. GPG%THERMAL_EQUILIBRIUM)) THEN
@@ -2724,11 +1323,14 @@ END SUBROUTINE INIT_REACTIONS
 
 
 ! *****************************************************************************
- SUBROUTINE INIT_DUMP_OUTPOUT
+ SUBROUTINE INIT_DUMP_OUTPOUT(IMESH)
 ! *****************************************************************************
+INTEGER, INTENT(IN) :: IMESH
+INTEGER :: I, N,J
+TYPE (GPYRO_MESH_TYPE), POINTER :: M
 
-INTEGER :: I, N, IMESH,J
-
+G => GPM(IMESH)
+M => G%MESH
 
 ! Set FIRST_SF_IN_MESH and FIRST_PROF_IN_MESH
 GPG%FIRST_SF_IN_MESH(:) = -1
@@ -2748,55 +1350,53 @@ ENDDO
 
 ! Initialize point dumps:
 DO I = 1, GPG%N_POINT_QUANTITIES
-   IMESH  = GPG%POINT_IMESH(I)
-   IF (IMESH .EQ. 0) IMESH=1
-   G => GPM(IMESH)
-
-   ! Start with z:
-   CALL GET_CLOSEST_CELL(G%NCELLZ,G%Z,GPG%POINT_Z(I),GPG%POINT_IZ(I))
-   ! Now on to x:
-   IF (G%NCELLX .EQ. 1) THEN
+   ! if the the mesh to dump is not the current mesh then cylce 
+   IF ( (IMESH .NE. GPG%POINT_IMESH(I)) .AND. GPG%POINT_IMESH(I) .NE. 0) CYCLE
+  
+   ! Start with x:
+   IF (M%NCELLX .EQ. 1) THEN
       GPG%POINT_IX(I) = 1
    ELSE
-      CALL GET_CLOSEST_CELL(G%NCELLX,G%X,GPG%POINT_X(I),GPG%POINT_IX(I))
+      CALL GET_CLOSEST_CELL(M%NCELLX,M%X,GPG%POINT_X(I),GPG%POINT_IX(I))
    ENDIF
    
-   ! And on to y:
-   IF (G%NCELLY .EQ. 1) THEN
+   !  And now y:
+   IF (M%NCELLY .EQ. 1) THEN
       GPG%POINT_IY(I) = 1
    ELSE
-      CALL GET_CLOSEST_CELL(G%NCELLY,G%Y,GPG%POINT_Y(I),GPG%POINT_IY(I))
+      CALL GET_CLOSEST_CELL(M%NCELLY,M%Y,GPG%POINT_Y(I),GPG%POINT_IY(I))
    ENDIF
+
+   ! And on to z:
+    CALL GET_CLOSEST_CELL(M%NCELLZ,M%Z(:,GPG%POINT_IX(I),GPG%POINT_IY(I)),GPG%POINT_Z(I),GPG%POINT_IZ(I))
 ENDDO
 
 ! Initialize profile dumps:
 DO I = 1, GPG%N_PROFILE_QUANTITIES
-   IMESH  = GPG%PROFILE_IMESH(I)
-   IF (IMESH .EQ. 0) IMESH=1
+   ! if the the mesh to dump is not the current mesh then cylce 
+   IF ( (IMESH .NE. GPG%PROFILE_IMESH(I)) .AND. GPG%PROFILE_IMESH(I) .NE. 0) CYCLE
    G => GPM(IMESH)
    IF (GPG%PROFILE_DIRECTION(I) .EQ. 'z') THEN
-      CALL GET_CLOSEST_CELL(G%NCELLX,G%X,GPG%PROFILE_COORD1(I),GPG%PROFILE_IX(I))
-      CALL GET_CLOSEST_CELL(G%NCELLY,G%Y,GPG%PROFILE_COORD2(I),GPG%PROFILE_IY(I))   
+      CALL GET_CLOSEST_CELL(M%NCELLX,M%X,GPG%PROFILE_COORD1(I),GPG%PROFILE_IX(I))
+      CALL GET_CLOSEST_CELL(M%NCELLY,M%Y,GPG%PROFILE_COORD2(I),GPG%PROFILE_IY(I))
 
    ELSEIF (GPG%PROFILE_DIRECTION(I) .EQ. 'x') THEN
-      CALL GET_CLOSEST_CELL(G%NCELLY,G%Y,GPG%PROFILE_COORD1(I),GPG%PROFILE_IY(I))   
-      CALL GET_CLOSEST_CELL(G%NCELLZ,G%Z,GPG%PROFILE_COORD2(I),GPG%PROFILE_IZ(I))
+      CALL GET_CLOSEST_CELL(M%NCELLY,M%Y,GPG%PROFILE_COORD1(I),GPG%PROFILE_IY(I))
+      CALL GET_CLOSEST_CELL(M%NCELLZ,M%Z(:,1,GPG%PROFILE_IY(I)),GPG%PROFILE_COORD2(I),GPG%PROFILE_IZ(I))
 
    ELSEIF (GPG%PROFILE_DIRECTION(I) .EQ. 'y') THEN
-      CALL GET_CLOSEST_CELL(G%NCELLX,G%X,GPG%PROFILE_COORD1(I),GPG%PROFILE_IX(I))   
-      CALL GET_CLOSEST_CELL(G%NCELLZ,G%Z,GPG%PROFILE_COORD2(I),GPG%PROFILE_IZ(I))
+      CALL GET_CLOSEST_CELL(M%NCELLX,M%X,GPG%PROFILE_COORD1(I),GPG%PROFILE_IX(I))
+      CALL GET_CLOSEST_CELL(M%NCELLZ,M%Z(:,GPG%PROFILE_IX(I),1),GPG%PROFILE_COORD2(I),GPG%PROFILE_IZ(I))
    ENDIF
 ENDDO
 
 
 !Initialize Smokeview dumps:
 DO N = 1, GPG%N_SMOKEVIEW_QUANTITIES
-   IMESH  = GPG%SMOKEVIEW_IMESH(N)
-   IF (IMESH .EQ. 0) IMESH=1
-   G => GPM(IMESH)
-   IF (GPG%SMOKEVIEW_PLANE(N) .EQ. 'xz') CALL GET_CLOSEST_CELL(G%NCELLY,G%Y,GPG%SMOKEVIEW_LOCATION(N),GPG%SMOKEVIEW_ICELL(N)) !y=const plane
-   IF (GPG%SMOKEVIEW_PLANE(N) .EQ. 'yz') CALL GET_CLOSEST_CELL(G%NCELLX,G%X,GPG%SMOKEVIEW_LOCATION(N),GPG%SMOKEVIEW_ICELL(N)) !x=const plane
-   IF (GPG%SMOKEVIEW_PLANE(N) .EQ. 'xy') CALL GET_CLOSEST_CELL(G%NCELLZ,G%Z,GPG%SMOKEVIEW_LOCATION(N),GPG%SMOKEVIEW_ICELL(N)) !z=const plane
+   IF ( (IMESH .NE. GPG%SMOKEVIEW_IMESH(N)) .AND. GPG%SMOKEVIEW_IMESH(N) .NE. 0) CYCLE
+   IF (GPG%SMOKEVIEW_PLANE(N) .EQ. 'xz') CALL GET_CLOSEST_CELL(M%NCELLY,M%Y,GPG%SMOKEVIEW_LOCATION(N),GPG%SMOKEVIEW_ICELL(N)) !y=const plane
+   IF (GPG%SMOKEVIEW_PLANE(N) .EQ. 'yz') CALL GET_CLOSEST_CELL(M%NCELLX,M%X,GPG%SMOKEVIEW_LOCATION(N),GPG%SMOKEVIEW_ICELL(N)) !x=const plane
+   IF (GPG%SMOKEVIEW_PLANE(N) .EQ. 'xy') CALL GET_CLOSEST_CELL(M%NCELLZ,M%Z(:,1,1),GPG%SMOKEVIEW_LOCATION(N),GPG%SMOKEVIEW_ICELL(N)) !z=const plane
 ENDDO
 
 
@@ -2804,6 +1404,6 @@ ENDDO
 END SUBROUTINE INIT_DUMP_OUTPOUT
 ! *****************************************************************************
 
-!******************************************************************************	
+!******************************************************************************
 END MODULE GPYRO_INIT
 !******************************************************************************

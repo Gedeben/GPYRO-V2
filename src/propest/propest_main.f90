@@ -14,6 +14,7 @@ USE GA_IO
 USE GA_SUBS
 USE GPYRO_INIT
 USE GPYRO_VARS
+USE GPYRO_CHECK,  ONLY: CHECK_GPYRO
 
 USE SCE_VARS
 USE SCE_IO
@@ -78,8 +79,8 @@ IF ((GA%MPI .AND. GA%IRANK .EQ. 0) .OR. (.NOT. GA%MPI)) THEN
    WRITE(0,'(A,A)')      ' Revision         : ',TRIM(GITHASH_PP)
    WRITE(0,'(A,A)')      ' Revision Date    : ',TRIM(GITDATE_PP)
    WRITE(0,'(A,A)')      ' Compilation Date : ',TRIM(BUILDDATE_PP)  
-   WRITE(*,*) 'Material property estimation program (gpyro_propest).'
-   WRITE(0,'(1X,A)') 'https://github.com/reaxfire/gpyro'
+   WRITE(0,'(1X,A)') 'https://gitlab.imft.fr/gpyro/gpyro'
+
    WRITE(0,'(1X,A)')
    WRITE(0,'(A,I4)') 'Number of cores (GA%NPROC): ', GA%NPROC
    WRITE(*,*)
@@ -101,7 +102,7 @@ ENDDO
 
 CALL MPI_BARRIER(MPI_COMM_WORLD, IERR)
 CALL GA_INIT
-CALL CHECK_GPYRO(GA%IRANK)
+IF (GA%IRANK .EQ. 0) CALL CHECK_GPYRO
 CALL CHECK_GPYRO_GA
 CALL GET_EXPERIMENTAL_DATA 
 

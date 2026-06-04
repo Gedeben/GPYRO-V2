@@ -1,0 +1,152 @@
+&HEAD CHID='Cone_Calo_Simple_pyrolysis', TITLE='Cone calo: 50 kW/m2' /
+&MESH IJK=12,12,24, XB=-0.12,0.12,-0.12,0.12,0.0,0.48 /
+
+&TIME T_END=350., WALL_INCREMENT=1, DT=0.2 /
+
+&MISC SOLID_PHASE_ONLY= .FALSE.
+	TMPA=20, 
+	RADIATION= .TRUE.
+      NUM_GPYRO_MESHES = 1,
+      GPYRO_MESH_CENTROIDS(1,:) = 0.00, 0.00, 0.0175,
+      GPYRO_MESH_EXTENTS( 1,:)  = 0.20, 0.20, 0.005,
+      PROCESS_GPYRO(1) =  1  /
+
+&SPEC ID='METHANE' /
+&REAC FUEL='METHANE'/
+
+
+&MATL ID                      = 'DUMMY_MATL' 
+      CONDUCTIVITY            = 0.2
+      DENSITY                 = 100.
+      SPECIFIC_HEAT           = 1.5 /
+
+
+
+&SURF ID                        = 'GPYRO' 
+      COLOR                     = 'BLACK'
+      GPYRO                     = .TRUE.
+      SPEC_ID(1:1)		= 'METHANE'
+      DEFAULT                   = .FALSE.
+      EXTERNAL_FLUX 		= 50,
+      RAMP_EF			= 'Cone' /
+
+
+
+&RAMP ID = 'Cone', T = 0,  F = 1. /
+&RAMP ID = 'Cone', T = 20,  F = 1. /
+&RAMP ID = 'Cone', T = 21, F = 0. /
+&RAMP ID = 'Cone', T = 70, F = 0. /
+
+&OBST XB = -0.10,0.10,-0.10,0.10,0.00,0.02, SURF_IDS = 'GPYRO', 'INERT', 'INERT' /
+
+&VENT MB='XMIN', SURF_ID='OPEN' /
+&VENT MB='YMIN', SURF_ID='OPEN' /
+&VENT MB='XMAX', SURF_ID='OPEN' /
+&VENT MB='YMAX', SURF_ID='OPEN' /
+&VENT MB='ZMAX', SURF_ID='OPEN' /
+&VENT MB='ZMIN', SURF_ID='OPEN' /
+
+
+#slice
+
+&SLCF PBX = 0,  QUANTITY='TEMPERATURE'/
+&SLCF PBY = 0,  QUANTITY='TEMPERATURE'/
+&SLCF PBZ = 0,  QUANTITY='TEMPERATURE'/
+
+
+
+&SLCF PBX = 0, QUANTITY='MASS FRACTION', SPEC_ID='METHANE' /
+&SLCF PBX = 0, QUANTITY='MASS FRACTION', SPEC_ID='OXYGEN' /
+&SLCF PBX = 0, QUANTITY='MASS FRACTION', SPEC_ID='AIR' /
+
+&SLCF PBY = 0, QUANTITY='MASS FRACTION', SPEC_ID='METHANE' /
+
+
+&SLCF PBX = 0, QUANTITY='VELOCITY', VECTOR=.TRUE./
+&SLCF PBY = 0, QUANTITY='VELOCITY', VECTOR=.TRUE./
+&SLCF PBZ = 0, QUANTITY='VELOCITY', VECTOR=.TRUE./
+&BNDF QUANTITY='RADIATIVE HEAT FLUX' /
+&BNDF QUANTITY='CONVECTIVE HEAT FLUX' /
+&BNDF QUANTITY='NET HEAT FLUX' /
+&BNDF QUANTITY='WALL TEMPERATURE' /
+&BNDF QUANTITY='BURNING RATE' /
+&BNDF QUANTITY='INCIDENT HEAT FLUX'/
+
+
+&BNDF QUANTITY='MASS FLUX', SPEC_ID='METHANE',  CELL_CENTERED=T/
+
+
+
+&DUMP DT_DEVC=0.01 /
+&DEVC   ID              = 'Mean Temperature'
+	QUANTITY	= 'WALL TEMPERATURE',
+	STATISTICS	= 'MEAN', 
+	XB		= -0.10,0.10,-0.10,0.10,0.02,0.02/
+
+&DEVC	ID              = 'MLR'
+	QUANTITY	= 'MASS FLUX'
+	SPEC_ID		= 'METHANE'
+	STATISTICS	= 'SURFACE INTEGRAL'
+	XB		= -0.10,0.10,-0.10,0.10,0.02,0.02/
+
+&DEVC	ID              = 'Mean Radiatiave incident flux'
+	QUANTITY	= 'INCIDENT HEAT FLUX'
+	STATISTICS	= 'MEAN'
+	XB		= -0.10,0.10,-0.10,0.10,0.02,0.02/
+
+
+&DEVC   ID		='thick'
+	QUANTITY	='WALL THICKNESS',
+	XYZ		=0.0,0.0,0.02,
+	IOR		=3   /
+
+&DEVC   ID		='MLR P1'
+	QUANTITY	='BURNING RATE',
+	XYZ		=0.0,0.0,0.02,
+	IOR		=3   /
+
+&DEVC   ID		='MLR P2'
+	QUANTITY	='BURNING RATE',
+	XYZ		=0.03,0.04,0.02,
+	IOR		=3   /
+
+&DEVC   ID		='MLR P3'
+	QUANTITY	='BURNING RATE',
+	XYZ		=-0.05,-0.095,0.02,
+	IOR		=3   /
+
+
+&DEVC   ID		='qr P1'
+	QUANTITY	='INCIDENT HEAT FLUX',
+	XYZ		=0.0,0.0,0.02,
+	IOR		=3   /
+
+&DEVC   ID		='qr P2'
+	QUANTITY	='INCIDENT HEAT FLUX',
+	XYZ		=0.03,0.04,0.02,
+	IOR		=3   /
+
+&DEVC   ID		='qr P3'
+	QUANTITY	='INCIDENT HEAT FLUX',
+	XYZ		=-0.05,-0.095,0.02,
+	IOR		=3   /
+
+
+
+&TAIL /
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

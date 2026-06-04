@@ -23,7 +23,11 @@ QTDMA (1) = DTDMA(1)/ATDMA(1)
 
 ! Use recursion to zip forward to back face cell
 DO IC = 2, NC
-   PTDMA(IC) = BTDMA(IC) / ( ATDMA(IC) - CTDMA(IC)*PTDMA(IC-1) )
+   IF(IC==NC .OR. IC==NC-1) THEN
+      !WRITE(0,*)"IC=",IC, "BTDMA(IC)=", BTDMA(IC), "ATDMA(IC) =", ATDMA(IC), " CTDMA(IC)",  CTDMA(IC), "PTDMA(IC-1)", PTDMA(IC-1)
+      !WRITE(0,*)"ATDMA(IC) - CTDMA(IC)*PTDMA(IC-1) =",ATDMA(IC) - CTDMA(IC)*PTDMA(IC-1) 
+   ENDIF
+      PTDMA(IC) = BTDMA(IC) / ( ATDMA(IC) - CTDMA(IC)*PTDMA(IC-1) )
    QTDMA(IC) =  ( DTDMA(IC) + CTDMA(IC) * QTDMA(IC-1) ) / ( ATDMA(IC) - CTDMA(IC) * PTDMA(IC-1) )
 ENDDO 
 
@@ -41,25 +45,29 @@ END SUBROUTINE TDMA_SOLVER_GENERAL
 
 
 ! *****************************************************************************
-SUBROUTINE GET_MLR_AT_BC(IGSPEC)
+SUBROUTINE GET_MLR_AT_BC(IGSPEC,IMESH)
 ! *****************************************************************************
-INTEGER, INTENT(IN):: IGSPEC
+INTEGER, INTENT(IN):: IGSPEC, IMESH
 INTEGER:: ICOUNT, IY, IX, IZ, ID_CELL_GAS_OUT
 REAL(EB) :: V, ML
+TYPE (GPYRO_MESH_TYPE), POINTER :: M
 
-DO ICOUNT=1,NGPYRO_FACES_NEEDING_BCS(0)
-   GP_BOUDARYS(0)%GPBC(ICOUNT)%MLR(:) = 0D0
+G => GPM(IMESH)
+M => G%MESH
+
+DO ICOUNT=1,NGPYRO_FACES_NEEDING_BCS(IMESH)
+   GP_BOUDARYS(IMESH)%GPBC(ICOUNT)%MLR(:) = 0D0
 ENDDO
-DO IY = 1, G%NCELLY
-DO IX = 1, G%NCELLX
-DO IZ = 1, G%NCELLZ
-   IF (G%IMASK(IZ,IX,IY)) CYCLE
+DO IY = 1, M%NCELLY
+DO IX = 1, M%NCELLX
+DO IZ = 1, M%NCELLZ
+   IF (M%IMASK(IZ,IX,IY)) CYCLE
    IF (.NOT. G%IS_REACTING(0,IZ,IX,IY)) CYCLE
    ID_CELL_GAS_OUT=G%INDICE_OF_BC_GAS_OUT(IZ,IX,IY)
-   V = G%DLTZ(IZ,IX,IY) * G%DLTX(IZ,IX,IY) * G%DLTY(IZ,IX,IY)
+   V = M%DZ(IZ,IX,IY) * M%DX(IZ,IX,IY) * M%DY(IZ,IX,IY)
    ML = G%GOMEGA(3,IGSPEC,IZ,IX,IY) * V
    ! Mass Loss Rate in Kg/s
-   GP_BOUDARYS(0)%GPBC(ID_CELL_GAS_OUT)%MLR(IGSPEC)=GP_BOUDARYS(0)%GPBC(ID_CELL_GAS_OUT)%MLR(IGSPEC)+ML
+   GP_BOUDARYS(IMESH)%GPBC(ID_CELL_GAS_OUT)%MLR(IGSPEC)=GP_BOUDARYS(IMESH)%GPBC(ID_CELL_GAS_OUT)%MLR(IGSPEC)+ML
 ENDDO
 ENDDO
 ENDDO
@@ -98,17 +106,21 @@ SUBROUTINE GET_EXIT_GAS_CELL(IMESH)
 ! *****************************************************************************      
 INTEGER, INTENT(IN) :: IMESH
 INTEGER:: ICOUNT,IY, IX, IZ, IZ_OUT,IOR
+TYPE (GPYRO_MESH_TYPE), POINTER :: M
+TYPE (GPYRO_BOUNDARYS_INFORMATION), POINTER :: BOUNDARYS
 
-G=>GPM(IMESH)
+G         => GPM(IMESH)
+BOUNDARYS => GP_BOUDARYS(IMESH)
+M         => G%MESH
 
 DO ICOUNT = 1, NGPYRO_FACES_NEEDING_BCS(IMESH)
-   IOR = GP_BOUDARYS(IMESH)%IOR_GPYRO(ICOUNT)
+   IOR = BOUNDARYS%IOR_GPYRO(ICOUNT)
    IF (IOR .NE. 3) CYCLE ! skip only via +z surface
-   IZ_OUT = GP_BOUDARYS(IMESH)%IZ_GPYRO (ICOUNT)
-   IX     = GP_BOUDARYS(IMESH)%IX_GPYRO (ICOUNT)
-   IY     = GP_BOUDARYS(IMESH)%IY_GPYRO (ICOUNT)
-   DO IZ = IZ_OUT, G%NCELLZ
-      IF (G%IMASK(IZ,IX,IY)) EXIT
+   IZ_OUT = BOUNDARYS%IZ_GPYRO (ICOUNT)
+   IX     = BOUNDARYS%IX_GPYRO (ICOUNT)
+   IY     = BOUNDARYS%IY_GPYRO (ICOUNT)
+   DO IZ = IZ_OUT, M%NCELLZ
+      IF (M%IMASK(IZ,IX,IY)) EXIT
       G%INDICE_OF_BC_GAS_OUT(IZ,IX,IY)=ICOUNT
    ENDDO
 ENDDO
@@ -136,43 +148,45 @@ REAL(EB) FUNCTION INTEGRATED_MASS_LOSS_RATE(IGSPEC)
 INTEGER, INTENT(IN) :: IGSPEC
 REAL(EB) :: ML, V, YJ
 INTEGER :: IZ, IX, IY
+TYPE (GPYRO_MESH_TYPE), POINTER :: M
 
 ML = 0.
 YJ = 1.
+M => G%MESH
 
 IF (GPG%SOLVE_PRESSURE) THEN
-   DO IY = 1, G%NCELLY
-   DO IX = 1, G%NCELLX
-   DO IZ = 1, G%NCELLZ
-      IF (G%IMASK(IZ,IX,IY)) CYCLE
+   DO IY = 1, M%NCELLY
+   DO IX = 1, M%NCELLX
+   DO IZ = 1, M%NCELLZ
+      IF (M%IMASK(IZ,IX,IY)) CYCLE
       IF (IGSPEC .NE. 0) YJ = G%YJGN(IGSPEC,IZ,IX,IY)
-      IF (G%NEEDSBCT(IZ,IX,IY)) ML = ML - G%MDOTPPDARCYT(IZ,IX,IY)*G%DXDY(IZ,IX,IY)*YJ
-      IF (G%NEEDSBCB(IZ,IX,IY)) ML = ML + G%MDOTPPDARCYB(IZ,IX,IY)*G%DXDY(IZ,IX,IY)*YJ
-      IF (G%NCELLX .GT. 1) THEN
-         IF (G%NEEDSBCW(IZ,IX,IY)) ML = ML - G%MDOTPPDARCYW(IZ,IX,IY)*G%DYDZ(IZ,IX,IY)*YJ
-         IF (G%NEEDSBCE(IZ,IX,IY)) ML = ML + G%MDOTPPDARCYE(IZ,IX,IY)*G%DYDZ(IZ,IX,IY)*YJ
+      IF (G%NEEDSBCT(IZ,IX,IY)) ML = ML - G%MDOTPPDARCYT(IZ,IX,IY)*M%DXDY(IZ,IX,IY)*YJ
+      IF (G%NEEDSBCB(IZ,IX,IY)) ML = ML + G%MDOTPPDARCYB(IZ,IX,IY)*M%DXDY(IZ,IX,IY)*YJ
+      IF (M%NCELLX .GT. 1) THEN
+         IF (G%NEEDSBCW(IZ,IX,IY)) ML = ML - G%MDOTPPDARCYW(IZ,IX,IY)*M%SXW(IZ,IX,IY)*YJ
+         IF (G%NEEDSBCE(IZ,IX,IY)) ML = ML + G%MDOTPPDARCYE(IZ,IX,IY)*M%SXE(IZ,IX,IY)*YJ
       ENDIF
-      IF (G%NCELLY .GT. 1) THEN
-         IF (G%NEEDSBCS(IZ,IX,IY)) ML = ML - G%MDOTPPDARCYS(IZ,IX,IY)*G%DXDZ(IZ,IX,IY)*YJ
-         IF (G%NEEDSBCN(IZ,IX,IY)) ML = ML + G%MDOTPPDARCYN(IZ,IX,IY)*G%DXDZ(IZ,IX,IY)*YJ
+      IF (M%NCELLY .GT. 1) THEN
+         IF (G%NEEDSBCS(IZ,IX,IY)) ML = ML - G%MDOTPPDARCYS(IZ,IX,IY)*M%SYS(IZ,IX,IY)*YJ
+         IF (G%NEEDSBCN(IZ,IX,IY)) ML = ML + G%MDOTPPDARCYN(IZ,IX,IY)*M%SYN(IZ,IX,IY)*YJ
       ENDIF
    ENDDO
    ENDDO
    ENDDO
 ELSE
-   DO IY = 1, G%NCELLY
-   DO IX = 1, G%NCELLX
-   DO IZ = 1, G%NCELLZ
-      IF (G%IMASK(IZ,IX,IY)) CYCLE
+   DO IY = 1, M%NCELLY
+   DO IX = 1, M%NCELLX
+   DO IZ = 1, M%NCELLZ
+      IF (M%IMASK(IZ,IX,IY)) CYCLE
       IF (.NOT. G%IS_REACTING(0,IZ,IX,IY)) CYCLE
-      V = G%DXDY(IZ,IX,IY)*G%DLTZ(IZ,IX,IY) ! This works if Dz decreases
+      V = M%DXDY(IZ,IX,IY)*M%DZ(IZ,IX,IY) ! This works if Dz decreases
       ML = ML + G%GOMEGA(3,IGSPEC,IZ,IX,IY) * V
    ENDDO
    ENDDO
    ENDDO
 ENDIF
 
-INTEGRATED_MASS_LOSS_RATE=1000.*ML
+INTEGRATED_MASS_LOSS_RATE=1000.*ML ! In g.m².s-1 (in 1D), g.m-1.s-1 (in 2D), g.s-1 in 3D
 
 ! *****************************************************************************
 END FUNCTION INTEGRATED_MASS_LOSS_RATE
@@ -185,17 +199,19 @@ REAL(EB) FUNCTION INTEGRATED_GAS_GENERATION_RATE(IGSPEC)
 INTEGER, INTENT(IN) :: IGSPEC
 REAL(EB) :: ML, V
 INTEGER :: IG, IZ, IX, IY
+TYPE (GPYRO_MESH_TYPE), POINTER :: M
 
+M => G%MESH
 ML = 0.
 
 IF (IGSPEC .EQ. 0) THEN
 ! Sum gas generation rate for all species
-   DO IY = 1, G%NCELLY
-   DO IX = 1, G%NCELLX
-   DO IZ = 1, G%NCELLZ
-      IF (G%IMASK(IZ,IX,IY)) CYCLE
+   DO IY = 1, M%NCELLY
+   DO IX = 1, M%NCELLX
+   DO IZ = 1, M%NCELLZ
+      IF (M%IMASK(IZ,IX,IY)) CYCLE
       IF (.NOT. G%IS_REACTING(0,IZ,IX,IY)) CYCLE
-      V = G%DXDY(IZ,IX,IY)*G%DLTZN(IZ,IX,IY) ! This works if Dz decreases
+      V = M%DV(IZ,IX,IY)
       DO IG = 1, GPROP%NGSPEC
          ML = ML + G%GOMEGA(3,IG,IZ,IX,IY) * V
       ENDDO
@@ -204,12 +220,12 @@ IF (IGSPEC .EQ. 0) THEN
    ENDDO
 ELSE
 ! Just get gas generation rate for one species
-   DO IY = 1, G%NCELLY
-   DO IX = 1, G%NCELLX
-   DO IZ = 1, G%NCELLZ
-      IF (G%IMASK(IZ,IX,IY)) CYCLE
+   DO IY = 1, M%NCELLY
+   DO IX = 1, M%NCELLX
+   DO IZ = 1, M%NCELLZ
+      IF (M%IMASK(IZ,IX,IY)) CYCLE
       IF (.NOT. G%IS_REACTING(0,IZ,IX,IY)) CYCLE
-      V = G%DXDY(IZ,IX,IY)*G%DLTZN(IZ,IX,IY) ! This works if Dz decreases
+      V = M%DV(IZ,IX,IY)
       ML = ML + G%GOMEGA(3,IGSPEC,IZ,IX,IY) * V
    ENDDO
    ENDDO
@@ -229,6 +245,9 @@ REAL(EB) FUNCTION INTEGRATED_HEAT_RELEASE_RATE()
 
 REAL(EB) :: HRR, V
 INTEGER :: IZ, IX, IY, IRXN
+TYPE (GPYRO_MESH_TYPE), POINTER :: M
+
+M => G%MESH
 
 HRR = 0.
 
@@ -237,11 +256,11 @@ DO IRXN = 1, SPROP%NRXN
    IF (RXN(IRXN)%DHS .GT. -1D-6 .AND. RXN(IRXN)%DHS .LT. 1D-6) THEN
       CONTINUE
    ELSE
-      DO IZ = 1, G%NCELLZ
-      DO IX = 1, G%NCELLX
-      DO IY = 1, G%NCELLY
-         IF (G%IMASK(IZ,IX,IY)) CYCLE
-         V = G%DXDY(IZ,IX,IY) * G%DLTZN(IZ,IX,IY) 
+      DO IZ = 1, M%NCELLZ
+      DO IX = 1, M%NCELLX
+      DO IY = 1, M%NCELLY
+         IF (M%IMASK(IZ,IX,IY)) CYCLE
+         V = M%DV(IZ,IX,IY)
          HRR = HRR - G%OMEGASFBK(IRXN,IZ,IX,IY) * RXN(IRXN)%DHS * V
       ENDDO
       ENDDO
@@ -251,11 +270,11 @@ DO IRXN = 1, SPROP%NRXN
    IF (RXN(IRXN)%DHV .GT. -1D-6 .AND. RXN(IRXN)%DHV .LT. 1D-6) THEN
       CONTINUE
    ELSE
-      DO IZ = 1, G%NCELLZ
-      DO IX = 1, G%NCELLX
-      DO IY = 1, G%NCELLY
-         IF (G%IMASK(IZ,IX,IY)) CYCLE
-         V = G%DXDY(IZ,IX,IY) * G%DLTZN(IZ,IX,IY) 
+      DO IZ = 1, M%NCELLZ
+      DO IX = 1, M%NCELLX
+      DO IY = 1, M%NCELLY
+         IF (M%IMASK(IZ,IX,IY)) CYCLE
+         V = M%DV(IZ,IX,IY)
          HRR = HRR - G%OMEGASFGK(IRXN,IZ,IX,IY) * RXN(IRXN)%DHV * V
       ENDDO
       ENDDO
@@ -278,29 +297,32 @@ REAL(EB) FUNCTION TOTAL_MASS(ISPEC)
 ! Total mass, in g/m2 (1D), g/m (2D), or g (3D)
 
 INTEGER, INTENT(IN) :: ISPEC
-REAL(EB) :: MG,MS,M,V
+REAL(EB) :: MG,MS,MT,V
 INTEGER :: IZ, IX, IY
+TYPE (GPYRO_MESH_TYPE), POINTER :: M
+
+M => G%MESH
 
 MG=0.
-M =0.
+MT=0.
 
-DO IY = 1, G%NCELLY
-DO IX = 1, G%NCELLX
-DO IZ = 1, G%NCELLZ
-   IF (G%IMASK(IZ,IX,IY)) CYCLE
-   V = G%DLTZN(IZ,IX,IY) * G%DLTX (IZ,IX,IY) * G%DLTY (IZ,IX,IY)
+DO IY = 1, M%NCELLY
+DO IX = 1, M%NCELLX
+DO IZ = 1, M%NCELLZ
+   IF (M%IMASK(IZ,IX,IY)) CYCLE
+   V = M%DZN(IZ,IX,IY) * M%DX (IZ,IX,IY) * M%DY (IZ,IX,IY)
    IF (ISPEC .EQ. 0) THEN
       MS =   G%RPN(IZ,IX,IY) 
       IF (GPG%SOLVE_PRESSURE) MG = G%POROSSN(IZ,IX,IY)*G%RGN(IZ,IX,IY)
    ELSE
       MS = G%RPN(IZ,IX,IY) * G%YIN(ISPEC,IZ,IX,IY)
    ENDIF
-   M = M + (MS + MG) * V
+   MT = MT + (MS + MG) * V
 ENDDO
 ENDDO
 ENDDO
 
-TOTAL_MASS = 1000.*M
+TOTAL_MASS = 1000.*MT
 
 ! *****************************************************************************
 END FUNCTION TOTAL_MASS
@@ -328,14 +350,14 @@ INTEGER, INTENT(IN) :: ISPEC
 REAL(EB), PARAMETER :: TWOPI = 2D0*PI
 REAL(EB) :: TERM1,TERM2,DHMELT,SIGMA2MELT,TMELT
 
-IF (SPROP%NC(ISPEC) .EQ. 0D0) THEN
+IF (ABS(SPROP%NC(ISPEC)) .LT. EPSILON_FB) THEN
    CPOFT  = SPROP%C0(ISPEC)
 ELSE
    CPOFT  = SPROP%C0(ISPEC) * (TMP/GPG%TREF) ** SPROP%NC(ISPEC)
 ENDIF
 
 DHMELT = SPROP%DHMELT(ISPEC)
-IF (DHMELT .GT. 0D0) THEN
+IF (DHMELT .GT. EPSILON_FB) THEN
    SIGMA2MELT = SPROP%SIGMA2MELT(ISPEC) 
    TMELT      = SPROP%TMELT(ISPEC) 
    TERM1 = DHMELT/SQRT(TWOPI*SIGMA2MELT)
@@ -350,14 +372,13 @@ REAL(EB) FUNCTION HOFT(ISPEC,TMP)
 !******************************************************************************
 REAL(EB), INTENT(IN) :: TMP
 INTEGER, INTENT(IN) :: ISPEC
-REAL(EB), PARAMETER :: TWOPI = 2D0*PI
 REAL(EB) :: TERM1,TERM2,SIGMA2MELT,TMELT,C0,NC,TOTR,T0OTR
 
 IF (TMP .LT. 0D0) THEN
    HOFT = - 1D0
    RETURN
 ENDIF
-IF (SPROP%NC(ISPEC) .EQ. 0D0) THEN
+IF (ABS(SPROP%NC(ISPEC)) .LT. EPSILON_FB) THEN
    HOFT = SPROP%C0(ISPEC) * (TMP - GPG%TDATUM)
 ELSE
    C0         = SPROP%C0(ISPEC)
@@ -367,7 +388,7 @@ ELSE
    HOFT = C0 * (TMP*TOTR**NC - GPG%TDATUM*T0OTR**NC) / (NC + 1D0)
 ENDIF
 
-IF (SPROP%DHMELT(ISPEC) .GT. 0D0) THEN
+IF (SPROP%DHMELT(ISPEC) .GT. EPSILON_FB) THEN
    SIGMA2MELT = SPROP%SIGMA2MELT(ISPEC) 
    TMELT      = SPROP%TMELT(ISPEC) 
    TERM1 = DERF( (TMP        - TMELT) / SQRT(2D0*SIGMA2MELT) )
@@ -377,131 +398,6 @@ ENDIF
 
 !******************************************************************************
 END FUNCTION HOFT
-!******************************************************************************
-
-!******************************************************************************
-SUBROUTINE GET_T_FROM_H(IMESH)
-!******************************************************************************
- !Calculate temperature from enthalpy
-INTEGER, INTENT(IN) :: IMESH
-REAL(EB) :: TGUESS,SUMYIC0I
-INTEGER :: ISPEC,IZ,IX,IY,NCELLX,NCELLY,NCELLZ
-INTEGER :: IZ_G, IX_G, IY_G, IOR, ICOUNT
-G => GPM(IMESH)
-
-NCELLX = G%NCELLX
-NCELLY = G%NCELLY
-NCELLZ = G%NCELLZ
-
-!$OMP PARALLEL DO SCHEDULE(STATIC) PRIVATE(IX,IY,IZ,ISPEC,TGUESS,SUMYIC0I) SHARED(G,SPROP, GPG,NCELLX,NCELLY,NCELLZ) COLLAPSE(3)
-DO IY = 1, NCELLY
-DO IX = 1, NCELLX
-DO IZ = 1, NCELLZ  !Calculate temperature from enthalpy
-   IF (GPG%USE_TOFH_NEWTON) THEN
-      TGUESS = G%TP(IZ,IX,IY) + (G%HPN(IZ,IX,IY)-G%HP(IZ,IX,IY))/G%CPS(IZ,IX,IY)
-      G%TPN(IZ,IX,IY)= TOFH_NEWTON(G%HPN(IZ,IX,IY),TGUESS,SPROP%NSSPEC,G%YIN(:,IZ,IX,IY))
-   ELSE
-      SUMYIC0I = 0D0
-      DO ISPEC = 1, SPROP%NSSPEC
-         SUMYIC0I= SUMYIC0I + G%YIN(ISPEC,IZ,IX,IY)*SPROP%C0(ISPEC)
-      ENDDO
-      G%TPN(IZ,IX,IY) = GPG%TDATUM + G%HPN(IZ,IX,IY) / SUMYIC0I
-   ENDIF
-ENDDO
-ENDDO
-ENDDO
-!$OMP END PARALLEL DO
-
-DO ICOUNT = 1, NGPYRO_FACES_NEEDING_BCS(IMESH)
-   IZ  = GP_BOUDARYS(IMESH)%IZ_GPYRO (ICOUNT)
-   IX  = GP_BOUDARYS(IMESH)%IX_GPYRO (ICOUNT)
-   IY  = GP_BOUDARYS(IMESH)%IY_GPYRO (ICOUNT)
-   IOR = GP_BOUDARYS(IMESH)%IOR_GPYRO (ICOUNT)
-
-   IF(GP_BOUDARYS(IMESH)%COMPLETE_CELL_AT_BC(ICOUNT)) THEN
-      SELECT CASE(IOR)
-         CASE( 3) ; IZ_G = IZ-1; IX_G = IX ; IY_G = IY 
-         CASE(-3) ; IZ_G = IZ+1; IX_G = IX ; IY_G = IY 
-         CASE( 1) ; IZ_G = IZ; IX_G = IX+1 ; IY_G = IY 
-         CASE(-1) ; IZ_G = IZ; IX_G = IX-1 ; IY_G = IY 
-         CASE( 2) ; IZ_G = IZ; IX_G = IX ; IY_G = IY+1
-         CASE(-2) ; IZ_G = IZ; IX_G = IX ; IY_G = IY-1
-      END SELECT
-      !WRITE(0,*) "BC", IZ, IZ_G
-      GPBCP(IZ,IX,IY,IOR)%T_SURFACE = G%TPN(IZ,IX,IY)
-      !GPBCP(IZ,IX,IY,IOR)%T_SURFACE = 0.5D0 *(G%TPN(IZ,IX,IY) + G%TPN(IZ_G,IX_G,IY_G))
-   ELSE
-      GPBCP(IZ,IX,IY,IOR)%T_SURFACE = G%TPN(IZ,IX,IY)
-   ENDIF
-END DO
-
-!******************************************************************************
-END SUBROUTINE GET_T_FROM_H
-!******************************************************************************
-
-!******************************************************************************
-SUBROUTINE CHECK_T_AND_H_CONVERGENCE(IMESH)
-!******************************************************************************
-INTEGER, INTENT(IN) :: IMESH
-INTEGER :: IZ,IX,IY, NCELLX,NCELLY,NCELLZ
-LOGICAL :: LOCAL_NAN
-REAL(EB):: MAXTMP, MAXTMP_LOCAL
-REAL(EB):: MINTMP, MINTMP_LOCAL
-LOCAL_NAN = .FALSE.
-
-G => GPM(IMESH)
-
-G%CONV_INFO%CONVERGED_TMP = .TRUE.
-
-NCELLX = G%NCELLX
-NCELLY = G%NCELLY
-NCELLZ = G%NCELLZ
-
-MAXTMP = -HUGE(0._EB)
-MINTMP =  HUGE(0._EB)
-
-!$OMP PARALLEL DEFAULT(SHARED) PRIVATE(IX,IY,IZ,MAXTMP_LOCAL) REDUCTION(.OR.:LOCAL_NAN)
-MAXTMP_LOCAL = -HUGE(0._EB)
-MINTMP_LOCAL =  HUGE(0._EB)
-
-!$OMP DO COLLAPSE(3) SCHEDULE(STATIC)
-DO IY = 1, NCELLY
-DO IX = 1, NCELLX
-DO IZ = 1, NCELLZ  
-   IF (G%TPN(IZ,IX,IY).NE.G%TPN(IZ,IX,IY) .OR. G%TPN(IZ,IX,IY).EQ.GPG%POSINF .OR. G%TPN(IZ,IX,IY).EQ.GPG%NEGINF) THEN
-      LOCAL_NAN = .TRUE.
-   ENDIF
-   IF (G%HPN(IZ,IX,IY).NE.G%HPN(IZ,IX,IY) .OR. G%HPN(IZ,IX,IY).EQ.GPG%POSINF .OR. G%HPN(IZ,IX,IY).EQ.GPG%NEGINF) THEN
-      LOCAL_NAN = .TRUE.
-   ENDIF
-   MAXTMP_LOCAL = MAX(MAXTMP_LOCAL, G%TPN(IZ,IX,IY))
-   MINTMP_LOCAL = MIN(MINTMP_LOCAL, G%TPN(IZ,IX,IY))
-
-ENDDO
-ENDDO
-ENDDO
-!$OMP END DO
-
-!$OMP CRITICAL
-MAXTMP = MAX(MAXTMP, MAXTMP_LOCAL)
-MINTMP = MIN(MINTMP, MINTMP_LOCAL)
-!$OMP END CRITICAL
-!$OMP END PARALLEL
-
-GPG%MAXTMP=MAXTMP
-GPG%MINTMP=MINTMP
-
-IF (LOCAL_NAN) THEN
-   GPG%NAN = .TRUE.
-   G%CONV_INFO%CONVERGED_TMP = .FALSE.
-   G%CONV_INFO%CONVERGED_ALL = .FALSE.
-   RETURN
-END IF
-
-IF (G%CONV_INFO%CONVERGED_TMP) G%CONV_INFO%ITER_TMP = G%CONV_INFO%ITER
-
-!******************************************************************************
-END SUBROUTINE CHECK_T_AND_H_CONVERGENCE
 !******************************************************************************
 
 
@@ -516,7 +412,7 @@ REAL(EB) :: K0, NK
 K0 = SPROP%K0Z(ISPEC)
 NK = SPROP%NKZ(ISPEC)
 
-IF (NK .EQ. 0D0) THEN
+IF (ABS(NK) .LT. EPSILON_FB) THEN
    KZOFT = K0
 ELSE
    KZOFT = K0 * (TMP/GPG%TREF)**NK
@@ -537,7 +433,7 @@ REAL(EB) :: K0, NK
 K0 = SPROP%K0X(ISPEC)
 NK = SPROP%NKX(ISPEC)
 
-IF (NK .EQ. 0D0) THEN
+IF (ABS(NK) .LT. EPSILON_FB) THEN
    KXOFT = K0
 ELSE
    KXOFT = K0 * (TMP/GPG%TREF)**NK
@@ -558,7 +454,7 @@ REAL(EB) :: K0, NK
 K0 = SPROP%K0Y(ISPEC)
 NK = SPROP%NKY(ISPEC)
 
-IF (NK .EQ. 0D0) THEN
+IF (ABS(NK) .LT. EPSILON_FB) THEN
    KYOFT = K0
 ELSE
    KYOFT = K0 * (TMP/GPG%TREF)**NK
@@ -586,7 +482,7 @@ OMEGAD = AD(1)*TSTAR**AD(2) + AD(3)*EXP(TSTAR*AD(4)) + AD(5)*EXP(AD(6)*TSTAR)
 NUMER = SQRT(NUMER1 * TMP**3D0)
 DOFT = 0.0188129*NUMER / (PRES*SIG2*OMEGAD)
 
-! *****************************************************************************      
+! *****************************************************************************
 END FUNCTION DOFT
 ! *****************************************************************************
 
@@ -613,67 +509,19 @@ DO ISPEC = 1, NSPEC
    BI(ISPEC) = GPG%NEWTON_B(ISPEC)
    AI(ISPEC) = YN(ISPEC) * GPG%NEWTON_A(ISPEC)
    RHS = RHS + YN(ISPEC) * GPG%NEWTON_C(ISPEC) 
-   IF (SPROP%DHMELT(ISPEC) .NE. 0D0) THEN
+   IF (ABS(SPROP%DHMELT(ISPEC)) .GT. EPSILON_FB) THEN
       MELTING = .TRUE.
       RHS = RHS + YN(ISPEC) * GPG%NEWTON_G(ISPEC)
       DI(ISPEC) = YN(ISPEC) * GPG%NEWTON_D(ISPEC)
    ENDIF
 ENDDO
       
-TOFH_NEWTON = RTNEWT(FUNCD,290D0,3000D0,GPG%HTOL,NSPEC,TGUESS,RHS,AI,BI,DI,MELTING)
+TOFH_NEWTON = RTNEWT(GPG%HTOL,NSPEC,TGUESS,RHS,AI,BI,DI,MELTING)
 
 ! *****************************************************************************
 END FUNCTION TOFH_NEWTON
 ! *****************************************************************************
 
-! *****************************************************************************
-SUBROUTINE FUNCD(T,F,DF,RHS,NSPEC,AI,BI,DI,MELTING)
-! *****************************************************************************
-REAL(EB), INTENT(IN) :: T,RHS
-INTEGER, INTENT(IN) :: NSPEC
-REAL(EB), INTENT(IN) :: AI(1:NSPEC),BI(1:NSPEC),DI(1:NSPEC)
-REAL(EB), INTENT(OUT) :: F,DF
-LOGICAL, INTENT(IN) :: MELTING
-INTEGER :: ISPEC,ILO,ITMAX,IHI
-REAL(EB) :: TSTAR,MULT,EXPTRM,TCLIP
-REAL(EB), PARAMETER :: SQRTRPI =  0.564189584D0 !SQRT(1D0/PI)
-      
-F  = -RHS
-DF = 0D0
-
-ITMAX = NINT(  10D0*(4000D0 - GPG%TDATUM) )
-
-IF (MELTING) THEN
-   DO ISPEC = 1, NSPEC
-      TSTAR = (T-GPG%NEWTON_E(ISPEC)) / GPG%NEWTON_F(ISPEC)
-      F =  F + AI(ISPEC)*T**BI(ISPEC) + DI(ISPEC) * DERF(TSTAR)
-      MULT = SPROP%DHMELT(ISPEC) * SQRTRPI / GPG%NEWTON_F(ISPEC)
-      EXPTRM = (T - GPG%NEWTON_E(ISPEC)) / GPG%NEWTON_F(ISPEC)
-      DF = DF + AI(ISPEC)*   BI(ISPEC) * T**SPROP%NC(ISPEC) + MULT * EXP(-(EXPTRM*EXPTRM))
-   ENDDO
-ELSE
-   IF (T .NE. T) THEN
-      TCLIP = GPG%TAMB
-   ELSE
-      TCLIP = T
-   ENDIF
-         
-   TCLIP = MAX(GPG%TDATUM,TCLIP)
-   TCLIP = MIN(4D3,TCLIP)
-               
-   ILO = INT (10D0*(TCLIP-GPG%TDATUM) )
-   ILO = MIN(ILO, ITMAX-1)
-   IHI = MIN(ILO+1, ITMAX)
-
-   DO ISPEC = 1, NSPEC
-      F  =  F + AI(ISPEC)*T**BI(ISPEC)
-      DF = DF + AI(ISPEC)*   BI(ISPEC) * T**SPROP%NC(ISPEC)
-   ENDDO
-ENDIF
-
-! *****************************************************************************
-END SUBROUTINE FUNCD
-! *****************************************************************************
 
 ! *****************************************************************************
 REAL(EB) FUNCTION CALC_EMIS(IZ,IX,IY)
@@ -718,7 +566,7 @@ SELECT CASE (ISCHEME)
       BIGAB(:) = ABS(PB(:)) / (EXP(ABS(PB(:))) - 1D0)
 END SELECT
 
-! *****************************************************************************      
+! *****************************************************************************
 END SUBROUTINE GET_A
 ! *****************************************************************************
 
@@ -738,12 +586,16 @@ INTEGER :: IZ,IX,IY,NCELLZ,NCELLX,NCELLY
 INTEGER :: IOR, ICOUNT
 
 REAL(EB), PARAMETER :: EPS = EPSILON_EB
+TYPE (GPYRO_MESH_TYPE), POINTER :: M
+TYPE (GPYRO_BOUNDARYS_INFORMATION), POINTER :: BOUNDARYS
 
-G => GPM(IMESH)
+G         => GPM(IMESH)
+BOUNDARYS => GP_BOUDARYS(IMESH)
+M         => G%MESH
 
-NCELLZ = G%NCELLZ
-NCELLX = G%NCELLX
-NCELLY = G%NCELLY
+NCELLZ = M%NCELLZ
+NCELLX = M%NCELLX
+NCELLY = M%NCELLY
 
 
 IF (NCELLZ .GT. 1 .AND. NCELLX .EQ. 1) THEN
@@ -757,7 +609,8 @@ ENDIF
 
 IF (NCELLZ .GT. 1 .AND. NCELLX .GT. 1 .AND. NCELLY .EQ. 1) THEN 
    IY = 1
-   !$OMP PARALLEL DO SCHEDULE(STATIC) PRIVATE(IX,IZ) SHARED(GAMPZ,GAMPX,NCELLX,NCELLZ) COLLAPSE(2)
+   !$OMP PARALLEL DO SCHEDULE(STATIC) PRIVATE(IX,IZ)&
+   !$OMP SHARED(GAMPZ,GAMPX,NCELLX,NCELLZ) COLLAPSE(2)
    DO IX = 1, NCELLX
    DO IZ = 1, NCELLZ
       IF (GAMPZ(IZ,IX,IY) .LT. EPS) GAMPZ(IZ,IX,IY) = EPS
@@ -768,7 +621,8 @@ IF (NCELLZ .GT. 1 .AND. NCELLX .GT. 1 .AND. NCELLY .EQ. 1) THEN
 ENDIF
 
 IF (NCELLZ .GT. 1 .AND. NCELLX .GT. 1 .AND. NCELLY .GT. 1) THEN
-   !$OMP PARALLEL DO SCHEDULE(STATIC) PRIVATE(IX,IY,IZ) SHARED(GAMPZ,GAMPX,GAMPY,NCELLX,NCELLY,NCELLZ) COLLAPSE(3)
+   !$OMP PARALLEL DO SCHEDULE(STATIC) PRIVATE(IX,IY,IZ)&
+   !$OMP SHARED(GAMPZ,GAMPX,GAMPY,NCELLX,NCELLY,NCELLZ) COLLAPSE(3)
    DO IY = 1, NCELLY
    DO IX = 1, NCELLX
    DO IZ = 1, NCELLZ
@@ -784,12 +638,12 @@ ENDIF
 
 DO ICOUNT = 1, NGPYRO_FACES_NEEDING_BCS(IMESH)
 
-   IF(.NOT. GP_BOUDARYS(IMESH)%COMPLETE_CELL_AT_BC(ICOUNT)) CYCLE
+   IF(.NOT. BOUNDARYS%COMPLETE_CELL_AT_BC(ICOUNT)) CYCLE
 
-   IZ  = GP_BOUDARYS(IMESH)%IZ_GPYRO (ICOUNT)
-   IX  = GP_BOUDARYS(IMESH)%IX_GPYRO (ICOUNT)
-   IY  = GP_BOUDARYS(IMESH)%IY_GPYRO (ICOUNT)
-   IOR = GP_BOUDARYS(IMESH)%IOR_GPYRO(ICOUNT)
+   IZ  = BOUNDARYS%IZ_GPYRO (ICOUNT)
+   IX  = BOUNDARYS%IX_GPYRO (ICOUNT)
+   IY  = BOUNDARYS%IY_GPYRO (ICOUNT)
+   IOR = BOUNDARYS%IOR_GPYRO(ICOUNT)
 
    SELECT CASE(IOR)
       CASE( 3) ; GAMPZ(IZ-1,IX,IY) = GAMPZ(IZ,IX,IY) 
@@ -807,7 +661,8 @@ END DO
 GAMB(NCELLZ,:,:) = 0D0
 GAMT(1,     :,:) = 0D0
 
-!$OMP PARALLEL DO SCHEDULE(STATIC) PRIVATE(IX,IY,IZ) SHARED(G,GAMB,GAMT,GAMPZ,NCELLX,NCELLY,NCELLZ) COLLAPSE(2)
+!$OMP PARALLEL DO SCHEDULE(STATIC) PRIVATE(IX,IY,IZ)&
+!$OMP SHARED(G,GAMB,GAMT,GAMPZ,NCELLX,NCELLY,NCELLZ) COLLAPSE(2)
 DO IY = 1, NCELLY
 DO IX = 1, NCELLX
    DO IZ = 1, NCELLZ - 1
@@ -825,7 +680,8 @@ IF (NCELLX .GT. 1) THEN
    GAME(:,NCELLX,:) = 0D0
    GAMW(:,1     ,:) = 0D0
 
-   !$omp PARALLEL DO SCHEDULE(STATIC) PRIVATE(IX,IY,IZ) SHARED(G,GAMPX,GAME,GAMW,NCELLX,NCELLY,NCELLZ) COLLAPSE(2)
+   !$OMP PARALLEL DO SCHEDULE(STATIC) PRIVATE(IX,IY,IZ)&
+   !$OMP SHARED(G,GAMPX,GAME,GAMW,NCELLX,NCELLY,NCELLZ) COLLAPSE(2)
    DO IZ = 1, NCELLZ
    DO IY = 1, NCELLY   
       DO IX = 1, NCELLX - 1
@@ -844,7 +700,8 @@ IF (NCELLY .GT. 1 .AND. NCELLX .GT. 1) THEN
    GAMN(:,:,NCELLY) = 0D0
    GAMS(:,:,1     ) = 0D0
 
-   !$OMP PARALLEL DO SCHEDULE(STATIC) PRIVATE(IX,IY,IZ) SHARED(G,GAMPY,GAMN,GAMS,NCELLX,NCELLY,NCELLZ) COLLAPSE(2)
+   !$OMP PARALLEL DO SCHEDULE(STATIC) PRIVATE(IX,IY,IZ)&
+   !$OMP SHARED(G,GAMPY,GAMN,GAMS,NCELLX,NCELLY,NCELLZ) COLLAPSE(2)
    DO IX = 1, NCELLX
    DO IZ = 1, NCELLZ
       DO IY = 1, NCELLY - 1
@@ -862,8 +719,6 @@ ENDIF
 ! *****************************************************************************
 END SUBROUTINE CALCULATE_INTERFACE_QUANTITIES
 ! *****************************************************************************
-
-
 
 
 
@@ -892,7 +747,7 @@ SELECT CASE (ISCHEME)
       BIGAB = ABS(PB) / (EXP(ABS(PB)) - 1D0)
 END SELECT
 
-! *****************************************************************************      
+! *****************************************************************************
 END SUBROUTINE GET_A_SINGLE
 ! *****************************************************************************
 
@@ -910,72 +765,124 @@ LINTERP = FXL + (FXH-FXL)*(X-XL)/(XH-XL)
 END FUNCTION LINTERP
 !******************************************************************************
 
-!******************************************************************************
-REAL(EB) FUNCTION rtnewt(funcd,x1,x2,xacc,NSPEC,TGUESS,RHS,AI,BI,DI,MELTING)
-!******************************************************************************
-
-REAL(EB), INTENT(IN) :: TGUESS,RHS
+! *****************************************************************************
+SUBROUTINE FUNCD(T,F,DF,RHS,NSPEC,AI,BI,DI,MELTING)
+! *****************************************************************************
+REAL(EB), INTENT(IN) :: T,RHS
 INTEGER, INTENT(IN) :: NSPEC
+REAL(EB), INTENT(IN) :: AI(1:NSPEC),BI(1:NSPEC),DI(1:NSPEC)
+REAL(EB), INTENT(OUT) :: F,DF
 LOGICAL, INTENT(IN) :: MELTING
-REAL(EB) :: x1,x2,xacc,AI(1:NSPEC),BI(1:NSPEC),DI(1:NSPEC)
-EXTERNAL funcd
-INTEGER, PARAMETER :: NEWTMAX=50 ! Set to maximum number of iterations.
-! Using the Newton-Raphson method, and the root of a function known to lie in the interval
-! [x1; x2]. The root rtnewt will be retuned until its accuracy is known within .xacc. funcd
-! is a user-supplied subroutine that returns both the function value and the first derivative
-! of the function at the point x.
-INTEGER :: j
-REAL(EB) :: df,dx,f
-
-RTNEWT=TGUESS
-do j=1,NEWTMAX
-   call funcd(rtnewt,f,df,RHS,NSPEC,AI,BI,DI,MELTING)
-   dx=f/df
-   rtnewt=rtnewt-dx
-   if((x1-rtnewt)*(rtnewt-x2).lt.0.) CONTINUE
-   if(abs(dx).lt.xacc) return !Convergence.
-enddo 
-
-! *****************************************************************************
-END FUNCTION RTNEWT
-! *****************************************************************************
-
-! *****************************************************************************
-SUBROUTINE locate(xx,n,x,j)
-! *****************************************************************************
-! Given an array xx(1:n), and given a value x, returns a value j such that x is between
-! xx(j) and xx(j+1). xx(1:n) must be monotonic, either increasing or decreasing. j=0
-! or j=n is returned to indicate that x is out of range.
-
-INTEGER j,n
-REAL(EB) :: x,xx(n)
-INTEGER jl,jm,ju
-jl=0 !Initialize lower
-ju=n+1 !and upper limits.
- 10 if(ju-jl.gt.1)then !If we are not yet done,
-       jm=(ju+jl)/2 !compute a midpoint,
-       if((xx(n).ge.xx(1)).eqv.(x.ge.xx(jm)))then
-          jl=jm !and replace either the lower limit
-       else
-          ju=jm !or the upper limit, as appropriate.
-       endif
-       goto 10 !Repeat until
-    endif !the test condition 10 is satisfied.
+INTEGER :: ISPEC,ILO,ITMAX,IHI
+REAL(EB) :: TSTAR,MULT,EXPTRM,TCLIP
+REAL(EB), PARAMETER :: SQRTRPI =  0.564189584D0 !SQRT(1D0/PI)
       
-if(x.eq.xx(1))then !Then set the output
-   j=1
-else if(x.eq.xx(n))then
-   j=n-1
-else
-   j=jl
-endif
+F  = -RHS
+DF = 0D0
 
-return !and return.
+ITMAX = NINT(  10D0*(4000D0 - GPG%TDATUM) )
 
+IF (MELTING) THEN
+   DO ISPEC = 1, NSPEC
+      TSTAR = (T-GPG%NEWTON_E(ISPEC)) / GPG%NEWTON_F(ISPEC)
+      F =  F + AI(ISPEC)*T**BI(ISPEC) + DI(ISPEC) * DERF(TSTAR)
+      MULT = SPROP%DHMELT(ISPEC) * SQRTRPI / GPG%NEWTON_F(ISPEC)
+      EXPTRM = (T - GPG%NEWTON_E(ISPEC)) / GPG%NEWTON_F(ISPEC)
+      DF = DF + AI(ISPEC)*   BI(ISPEC) * T**SPROP%NC(ISPEC) + MULT * EXP(-(EXPTRM*EXPTRM))
+   ENDDO
+ELSE
+   IF (.NOT. IEEE_IS_FINITE(T)) THEN
+      TCLIP = GPG%TAMB
+   ELSE
+      TCLIP = T
+   ENDIF
+         
+   TCLIP = MAX(GPG%TDATUM,TCLIP)
+   TCLIP = MIN(4D3,TCLIP)
+               
+   ILO = INT (10D0*(TCLIP-GPG%TDATUM) )
+   ILO = MIN(ILO, ITMAX-1)
+   IHI = MIN(ILO+1, ITMAX)
+
+   DO ISPEC = 1, NSPEC
+      F  =  F + AI(ISPEC)*T**BI(ISPEC)
+      DF = DF + AI(ISPEC)*   BI(ISPEC) * T**SPROP%NC(ISPEC)
+   ENDDO
+ENDIF
+
+! *****************************************************************************
+END SUBROUTINE FUNCD
+! *****************************************************************************
+
+!******************************************************************************
+REAL(EB) FUNCTION RTNEWT(XACC,NSPEC,TGUESS,RHS,AI,BI,DI,MELTING)
+!******************************************************************************
+
+REAL(EB), INTENT(IN) :: TGUESS, RHS
+INTEGER,  INTENT(IN) :: NSPEC
+LOGICAL,  INTENT(IN) :: MELTING
+REAL(EB), INTENT(IN) :: XACC
+REAL(EB), INTENT(IN) :: AI(1:NSPEC), BI(1:NSPEC), DI(1:NSPEC)
+
+INTEGER, PARAMETER :: NEWTMAX=50 ! Set to maximum number of iterations.
+INTEGER :: J
+REAL(EB) :: DF, DX, F
+
+! Using the Newton-Raphson method, and the root of a function.
+! The root rtnewt will be retuned until its accuracy is known within .xacc. 
+
+RTNEWT = TGUESS
+DO J = 1, NEWTMAX
+   CALL FUNCD(RTNEWT, F, DF, RHS, NSPEC, AI, BI, DI, MELTING)
+   IF (ABS(DF) < EPSILON_EB) RETURN
+   DX = F / DF
+   RTNEWT = RTNEWT - DX
+   !IF ((X1 - RTNEWT)*(RTNEWT - X2) .LT. EPSILON_EB) CONTINUE
+   IF (ABS(DX) < XACC) RETURN !Convergence.
+ENDDO
+
+!******************************************************************************
+END FUNCTION RTNEWT
+!******************************************************************************
+
+
+! *****************************************************************************
+SUBROUTINE LOCATE(XX,N,X,J)
+! *****************************************************************************
+! Given an array XX(1:N), and given a value x, returns a value j such that X is between
+! XX(j) and XX(J+1). XX(1:N) must be monotonic, either increasing or decreasing. J=0
+! or J=N is returned to indicate that X is out of range.
+
+INTEGER :: J, N
+REAL(EB) :: X, XX(N)
+INTEGER :: JL, JM, JU
+
+JL = 0          !Initialize lower
+JU = N + 1      !and upper limits.
+
+10 IF (JU - JL > 1) THEN        !If we are not yet done,
+      JM = (JU + JL) / 2        !compute a midpoint,
+      IF ((XX(N) >= XX(1)) .EQV. (X >= XX(JM))) THEN
+         JL = JM                !and replace either the lower limit
+      ELSE
+         JU = JM                !or the upper limit, as appropriate.
+      ENDIF
+      GOTO 10                   !Repeat until
+   ENDIF                         !the test condition 10 is satisfied.
+
+IF (ABS(X - XX(1)) <= EPSILON_EB) THEN      !Then set the output
+   J = 1
+ELSEIF (ABS(X - XX(N)) <= EPSILON_EB) THEN
+   J = N - 1
+ELSE
+   J = JL
+ENDIF
+
+RETURN 
 ! *****************************************************************************
 END SUBROUTINE LOCATE
 ! *****************************************************************************
-      
+ 
 ! *****************************************************************************
 REAL(EB) FUNCTION MY_DERF (X)
 ! *****************************************************************************
@@ -1211,43 +1118,6 @@ T = REAL(IT,EB) / REAL(CLOCK_COUNT_RATE,EB)
 END SUBROUTINE GET_CPU_TIME
 ! *****************************************************************************
 
-! *****************************************************************************
-INTEGER FUNCTION IJK_FROM_XYZ(COORD,NCELL,TARG,ITYPE)
-! *****************************************************************************
-
-INTEGER, INTENT(IN) :: NCELL, ITYPE
-REAL(EB), INTENT(IN) :: TARG
-REAL(EB), DIMENSION(:), INTENT(IN) :: COORD
-REAL(EB) :: DIFF, MINDIFF
-INTEGER :: I
-
-IF (NCELL .EQ. 1) THEN
-   IJK_FROM_XYZ = 1
-ELSE
-   MINDIFF = 9D9
-   IF (ITYPE .EQ. 1) THEN
-      DO I = 1, NCELL
-         DIFF = ABS(COORD(I) - TARG)
-         IF (DIFF .LT. MINDIFF) THEN
-            MINDIFF = DIFF
-            IJK_FROM_XYZ = I
-         ENDIF
-      ENDDO
-   ELSE
-      DO I = 1, NCELL
-         DIFF = ABS(COORD(I) - TARG)
-         IF (DIFF .LT. MINDIFF) THEN
-            MINDIFF = DIFF
-            IJK_FROM_XYZ = I
-         ENDIF
-      ENDDO
-   ENDIF
-ENDIF
-
-! *****************************************************************************
-END FUNCTION IJK_FROM_XYZ
-! *****************************************************************************
-
 
 ! *****************************************************************************
 SUBROUTINE SET_SWEEP_DIRECTION(SWEEPZ,SWEEPX,SWEEPY)
@@ -1255,10 +1125,13 @@ SUBROUTINE SET_SWEEP_DIRECTION(SWEEPZ,SWEEPX,SWEEPY)
 LOGICAL , INTENT(OUT):: SWEEPZ, SWEEPX, SWEEPY
 INTEGER ::  NCELLX,NCELLY,NCELLZ
 CHARACTER(LEN=4) :: DIR
+TYPE (GPYRO_MESH_TYPE), POINTER :: M
 
-NCELLX = G%NCELLX
-NCELLY = G%NCELLY
-NCELLZ = G%NCELLZ
+M => G%MESH
+
+NCELLX = M%NCELLX
+NCELLY = M%NCELLY
+NCELLZ = M%NCELLZ
 
 ! Vary sweep direction across iterations 
 SWEEPZ = .FALSE.

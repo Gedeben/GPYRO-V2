@@ -1,0 +1,51 @@
+============== TIMING SUMMARY ===============
+Total CPU Time (s):   15.97
+               Subroutine  Time (s)   CPU (%)
+---------------------------------------------
+     SOLID_SPECIES_SOLVER     10.15   63.54
+    SOLID_ENTHALPY_SOLVER      0.00    0.00
+             GAS_EQUATION      0.00    0.00
+            DUMP_ROUTINES      0.66    4.10
+               ALL OTHERS      5.17   32.36
+---------------------------------------------
+  
+  
+=========== SOLID SPECIES SOLVER ============
+               Subroutine  Time (s)   CPU (%)
+---------------------------------------------
+            REACTION_RATE      6.18   60.94
+     SPECIES_SOURCE_TERMS      1.78   17.50
+     SOLVE_YI_AND_DENISTY      1.76   17.37
+         MESH_DEFORMATION      0.16    1.61
+                   Others      0.26    2.59
+---------------------------------------------
+                   TOTAL:     10.15  100.00
+  
+  
+============== DUMP ROUTINES ================
+               Subroutine  Time (s)   CPU (%)
+---------------------------------------------
+               POINT DATA      0.13   19.17
+           SMOKEVIEW FILE      0.13   20.22
+             PROFILE DATA      0.13   20.47
+                   Others      0.26   40.14
+---------------------------------------------
+                   TOTAL:      0.66  100.00
+  
+  
+================ ALL OTHERS =================
+               Subroutine  Time (s)   CPU (%)
+---------------------------------------------
+          READ INPUT FILE      0.01    0.15
+           INITIALISATION      0.00    0.02
+         GET BC TIME STEP      0.00    0.00
+UPDATE SOLUTION TIME STEP      0.00    0.00
+                   Others      5.16   99.82
+---------------------------------------------
+                   TOTAL:      5.17  100.00
+  
+  
+  
+  
+  
+  

@@ -16,7 +16,9 @@ USE GPYRO_VARS
 USE GPYRO_IO
 USE GPYRO_INIT
 USE GPYRO_FUNCS
+USE GPYRO_CHECK,  ONLY: CHECK_GPYRO
 USE OMP_UTILS
+
 
 IMPLICIT NONE
 
@@ -25,6 +27,8 @@ REAL(EB) :: TI
 REAL(EB) :: TSTART,TEND, TMID1,TMID2, TREAD
 LOGICAL  :: LOPEN, FAILED_TS, END_SIMULATION, LAST_TIME_STEP
 CHARACTER(300) :: MESSAGE
+TYPE (GPYRO_MESH_TYPE), POINTER :: M
+
 
 WRITE(0,'(A)') ""
 WRITE(0,'(A)') "        (      (   '  )      (      (         )(    "
@@ -41,7 +45,8 @@ WRITE(0,'(A)') "                                                    "
 WRITE(0,'(A,A)')      ' Revision         : ',TRIM(GITHASH_PP)
 WRITE(0,'(A,A)')      ' Revision Date    : ',TRIM(GITDATE_PP)
 WRITE(0,'(A,A)')      ' Compilation Date : ',TRIM(BUILDDATE_PP)
-WRITE(0,'(1X,A)') 'https://github.com/reaxfire/gpyro'
+WRITE(0,'(1X,A)') 'https://gitlab.imft.fr/gpyro/gpyro'
+
 WRITE(0,'(A)') ""
 WRITE(0, '(A)') OMP_STATUS_MESSAGE()
 WRITE(0,'(A)') ""
@@ -59,7 +64,7 @@ IGPYRO_TYPE = 1 !Standalone implementation
 
 CALL GET_CPU_TIME(TMID1)
 CALL READ_GPYRO
-CALL CHECK_GPYRO(0) !Checks for potential conditions that could lead to seg fault or cause other problems
+CALL CHECK_GPYRO !Checks for potential conditions that could lead to seg fault or cause other problems
 CALL GET_CPU_TIME(TMID2) ; TREAD = TMID2 - TMID1
 
 DO ICASE = 1, GPG%NCASES
@@ -68,7 +73,7 @@ DO ICASE = 1, GPG%NCASES
    IMESH = GPG%IMESH(ICASE) ! One cases can only have one mesh for now
    CALL ALLOCATE_GPYRO(IMESH)
    G=>GPM(IMESH)
-   GPBCP(1:,1:,1:,-3:)=>G%GPYRO_BOUNDARY_CONDITION(1:,1:,1:,-3:)
+   M => G%MESH
    CALL INIT_GPYRO(ICASE,IMESH)
    GPG%TUSED(51) = TREAD
    !If summary file is open, close it:
@@ -89,6 +94,7 @@ DO ICASE = 1, GPG%NCASES
    LAST_TIME_STEP = .FALSE.
 
    DO WHILE (.NOT. END_SIMULATION)
+      G%NTIMESTEPS = G%NTIMESTEPS + 1
       IF (LAST_TIME_STEP) END_SIMULATION = .TRUE.
       FAILED_TS = .TRUE.
       DO WHILE (FAILED_TS)
@@ -96,22 +102,21 @@ DO ICASE = 1, GPG%NCASES
          IF (GPG%ZEROD(ICASE)) THEN
             CALL TG_DRIVER(ICASE,TI,FAILED_TS)
          ELSE
-            CALL GPYRO_PYROLYSIS(IMESH,ICASE,G%NCELLZ,G%NCELLX,G%NCELLY,TI,FAILED_TS)
-            IF(G%THICKNESS(1,1) .LT. 5D-4*G%ZDIM) THEN 
+            CALL GPYRO_PYROLYSIS(IMESH,ICASE,M%NCELLZ,M%NCELLX,M%NCELLY,TI,FAILED_TS)
+            IF(G%THICKNESS(1,1) .LT. 5D-4*M%ZDIM) THEN 
                TI = GPG%TSTOP(ICASE) + 1.
                CONTINUE
             ENDIF
          ENDIF
       ENDDO
      
-      G%NTIMESTEPS = G%NTIMESTEPS + 1
       LO10 = LOG10(REAL(MAX(1,ABS(G%NTIMESTEPS)),EB)) !Borrow a little trick from FDS
       IF (MOD(G%NTIMESTEPS,10**LO10) .EQ. 0 .OR. MOD(G%NTIMESTEPS,1000)==0 .OR. LAST_TIME_STEP) THEN
          WRITE(0,'(1X,A,I7,A,F10.4,A)') 'Timestep #: ', G%NTIMESTEPS, '  Time: ', TI, ' s'
          CALL WRITE_DOTOUT_FILE(ICASE,TI,IMESH) 
       ENDIF
 
-      IF (GPG%MAXTMP.NE.GPG%MAXTMP .OR. GPG%MAXTMP.EQ.GPG%POSINF .OR. GPG%MAXTMP.EQ.GPG%NEGINF) CALL WRITE_DOTOUT_FILE(ICASE,TI,IMESH) 
+      IF (.NOT. IEEE_IS_FINITE(GPG%MAXTMP)) CALL WRITE_DOTOUT_FILE(ICASE,TI,IMESH) 
       GPG%DT = GPG%DTNEXT
       TI     = TI + GPG%DT
       IF (TI .GE. (GPG%TSTOP(ICASE)-EPSILON_FB)) THEN
@@ -127,12 +132,12 @@ DO ICASE = 1, GPG%NCASES
    GPG%TUSED(0) = GPG%TUSED(0) + TEND - TSTART
    
    !CALL GET_CPU_TIME(TMID1)
-   CALL DEALLOCATE_GPYRO
    CALL CLOSE_FILES
    !CALL GET_CPU_TIME(TMID2) ; GPG%TUSED(53) = GPG%TUSED(53) + TMID2 - TMID1
 
-
 ENDDO !ICASE
+
+CALL DEALLOCATE_GPYRO
 
 
 MESSAGE = 'End of simulation reached successfully. Shutting down.' 

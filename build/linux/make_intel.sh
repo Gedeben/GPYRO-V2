@@ -21,6 +21,27 @@ fi
 
 
 
+
+mkdir gpyro_fds 2> /dev/null
+cd gpyro_fds
+
+#rm -f *.o *.mod
+#make -j6 -f ../../Makefile_gpyro_fds intel_linux_mpi_debug
+#rm -f *.o *.mod
+
+rm -f *.o *.mod
+#make -j6 -f ../../Makefile_gpyro_fds intel_linux_debug
+rm -f *.o *.mod
+
+rm -f *.o *.mod 
+#make -j6 -f ../../Makefile_gpyro_fds intel_linux
+rm -f *.o *.mod
+
+#rm -f *.o *.mod
+#make -j6 -f ../../Makefile_gpyro_fds intel_linux_mpi
+#rm -f *.o *.mod
+
+cd ..
 mkdir gpyro 2> /dev/null
 cd gpyro
 
@@ -37,11 +58,11 @@ mkdir gpyro_propest 2> /dev/null
 cd gpyro_propest
 
 rm -f *.o *.mod
-make -j6 -f ../../Makefile_gpyro_propest  intel_linux_mpi
+#make -f ../../Makefile_gpyro_propest  intel_linux_mpi
 rm -f *.o *.mod
 
 rm -f *.o *.mod
-make -j6 -f ../../Makefile_gpyro_propest  intel_linux_mpi_debug
+#make -f ../../Makefile_gpyro_propest  intel_linux_mpi_debug
 rm -f *.o *.mod
 exit 0
 

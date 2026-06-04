@@ -50,7 +50,7 @@ compile_pdf_report "bibtex"
 
 
 # Write status report
-#write_status_report "$SCRIPT_DIR" "$POST_EXIT_CODE"
+write_status_report "$SCRIPT_DIR" "$POST_EXIT_CODE"
 echo ""
 echo ""
 exit $POST_EXIT_CODE

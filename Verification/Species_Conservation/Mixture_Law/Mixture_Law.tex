@@ -1,0 +1,87 @@
+\ifdefined\standalone 
+\documentclass[12pt]{article}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[a4paper, margin=1in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{textcomp}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{enumitem}
+\usetikzlibrary{decorations.pathmorphing,patterns}
+\usepackage[hidelinks]{hyperref} % <- hypertext
+
+\begin{document}
+\fi
+
+\section{Mixture law}
+\label{sec:mixture-law}
+
+This verification case evaluates the ability of \textsc{Gpyro} to apply the mixture law for reacting condensed-phase materials. For a generic property $\phi$ (such as bulk density $\rho$, porosity $\Psi$, thermal conductivity $k$ or the emissivity $\varepsilon$), the effective mixture value is written as:
+\begin{equation}
+\bar{\phi}(x,t) = \sum_{i=1}^{M} X_i(x,t)\, \phi_i ,
+\end{equation}
+where $X_i$ is the volume fraction of material $i$.
+
+
+A simulation is performed in which material A is converted into material B at a constant reaction rate
+$r = 0.001~\mathrm{kg\,m^{-3}\,s^{-1}}$. The material properties are summarized in Table~\ref{tab:properties_mixture_law}.
+The analytical solution for the mass and volume fractions $Y$ is given by:
+\begin{equation}
+\left\{
+\begin{aligned}
+Y_A(t) &= \max(1 - r t,\, 0), \\
+Y_B(t) &= 1 - Y_A(t),
+\end{aligned}
+\right.
+\qquad
+\left\{
+\begin{aligned}
+X_A(t) &= \bar{\rho}\, {Y_A}/{\rho_A}, \\
+X_B(t) &= \bar{\rho}\, {Y_B}/{\rho_B},
+\end{aligned}
+\right
+\qquad
+\text{with }
+\bar{\rho}(t) =
+\left( \frac{Y_A}{\rho_A} + \frac{Y_B}{\rho_B} \right)^{-1}
+\end{equation}
+\begin{table}[H]
+\centering
+\caption{Thermophysical properties used for the mixture law verification}
+\label{tab:properties_mixture_law}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{c c c c c c}
+\hline
+Material &
+$k$ ($\mathrm{W\,m^{-1}\,K^{-1}}$) &
+$\rho$ ($\mathrm{kg\,m^{-3}}$) &
+$\rho_s$ ($\mathrm{kg\,m^{-3}}$) &
+$c_p$ ($\mathrm{J\,kg^{-1}\,K^{-1}}$) &
+$\varepsilon$ ($-$) \\
+\hline
+Material A & 1.0 & 1000 & 2000 & 1200 & 1.0 \\
+Material B & 0.5 & 600  & 800  & 1900 & 0.0 \\
+\hline
+\end{tabular}
+\end{table}
+
+The temporal evolution of mass fractions, volume fractions, and effective properties is shown in Figure~\ref{fig:Mix_law_K}. Numerical results obtained with the current version of \textsc{Gpyro} are compared to the analytical solution and to results from \textsc{Gpyro} V0.8, highlighting the correct implementation of the mixture law in the version of \textsc{Gpyro}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{All_Variables_Subplots_ML.png}
+\caption{Mixture law verification: comparison between analytical and numerical results}
+\label{fig:Mix_law_K}
+\end{figure}
+
+\ifdefined\standalone
+\end{document}
+\fi
+
+
+
+
+
+

@@ -1,6 +1,7 @@
 ! *****************************************************************************
 MODULE PREC 
 ! *****************************************************************************
+USE, INTRINSIC :: IEEE_ARITHMETIC
 IMPLICIT NONE
 ! Just like in FDS...
 INTEGER, PARAMETER :: FB = SELECTED_REAL_KIND(6)

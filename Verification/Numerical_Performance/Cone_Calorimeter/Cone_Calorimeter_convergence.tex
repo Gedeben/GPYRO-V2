@@ -1,0 +1,104 @@
+\ifdefined\standalone
+\documentclass[12pt]{article}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[a4paper, margin=1in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{textcomp}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage[hidelinks]{hyperref}
+
+\begin{document}
+\fi
+
+
+\section{Convergence of the Cone Calorimeter Solver}
+
+This verification case evaluates the temporal and spatial convergence of the coupled thermal and pyrolysis solvers in a cone calorimeter configuration.
+The reference simulation corresponds to the case presented in Section~\ref{sec:ref_cone_calo}.
+The mass loss rate (MLR) is used as the primary quantity of interest to assess numerical convergence.
+
+
+\subsection*{Temporal convergence}
+
+
+The temporal convergence is examined by varying the time step from \(10~\mathrm{s}\) to \(0.0005~\mathrm{s}\), while maintaining a uniform spatial discretization of \(0.1~\mathrm{mm}\).
+
+Figure~\ref{fig:MLR_Temporal_convergence} presents the mass loss rate histories obtained for the different temporal discretizations. Figure~\ref{fig:L2_error_Temporal_cone} presents the corresponding error as a function of time step size. The error is computed using the \(L^2\) norm by comparing each solution with the reference solution obtained using the smallest time step (0.0005 s). A linear slope equal to 1 is obtained in the log--log error plot, which is consistent with the first-order temporal accuracy of the numerical scheme.
+
+In addition, For time steps smaller than 1 s, the solution exhibits convergence. For larger time steps, deviations appear due to temporal discretization errors. Nevertheless, because the one-dimensional thermal solver is implicit and therefore unconditionally stable, these deviations remain bounded and manifest as oscillations rather than instabilities. Moreover, the species conservation equation is implemented in conservative form. As a result, even with large time steps, the total mass consumed remains nearly unchanged.
+
+\begin{figure}[H]
+\centering
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{Temporal/CC_time_step_convergence.png}
+    \caption{Mass loss rate for various time steps.}
+    \label{fig:MLR_Temporal_convergence}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{Temporal/CC_time_step_error.png}
+    \caption{Temporal error as a function of time step size.}
+    \label{fig:L2_error_Temporal_cone}
+\end{minipage}
+\end{figure}
+
+
+\subsection*{Spatial convergence}
+
+The spatial convergence is evaluated by varying the grid spacing from \(1~\mathrm{mm}\) down to \(10^{-4}~\mathrm{mm}\). All simulations are run using a fixed time step of \(0.05~\mathrm{s}\).
+
+Figure~\ref{fig:MLR_Spatial_convergence} presents the mass loss rate histories obtained for the different spatial discretizations. Figure~\ref{fig:L2_error_Spatial_cone} presents the corresponding \(L^2\) error as a function of grid spacing. The mass loss rate obtained with the finest mesh is used as the reference solution for computing the error.
+
+A linear slope close to 1 is obtained in the log--log error plot, indicating first-order spatial convergence for the complete coupled pyrolysis problem. This behavior is consistent with the first-order spatial accuracy of the mass conservation solver, which dominates the overall error of the coupled system.
+
+\begin{figure}[H]
+\centering
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{Spatial/CC_grid_convergence.png}
+    \caption{Mass loss rate for various grid spacings.}
+    \label{fig:MLR_Spatial_convergence}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{Spatial/CC_grid_error.png}
+    \caption{Spatial error as a function of grid spacing.}
+    \label{fig:L2_error_Spatial_cone}
+\end{minipage}
+\end{figure}
+
+
+\subsection*{Computational cost}
+
+The computational cost associated with the temporal and spatial convergence studies is reported in Figures~\ref{fig:CPU_Time_Temporal_cone} and \ref{fig:CPU_Time_Spatial_cone}.
+As expected, the computational time increases linearly whith time and spatial discretisation.
+
+
+\begin{figure}[H]
+\centering
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{Temporal/CC_time_step_CPU.png}
+    \caption{CPU time for temporal convergence simulations.}
+    \label{fig:CPU_Time_Temporal_cone}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{Spatial/CC_grid_CPU.png}
+    \caption{CPU time for spatial convergence simulations.}
+    \label{fig:CPU_Time_Spatial_cone}
+\end{minipage}
+\end{figure}
+
+
+\ifdefined\standalone
+\end{document}
+\fi
+
+

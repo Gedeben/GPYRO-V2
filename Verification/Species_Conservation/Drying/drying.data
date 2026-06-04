@@ -1,0 +1,173 @@
+//
+&GPYRO_GENERAL 
+DT0 = 5,
+USE_TOFH_NEWTON = .TRUE.,
+SHYI_CORRECTION = .TRUE.,
+ / 
+
+&GPYRO_OUTPUT 
+CASENAME = 'drying',
+N_POINT_QUANTITIES = 10,
+N_PROFILE_QUANTITIES = 0,
+
+DTDUMP_POINT = 1,
+
+POINT_QUANTITY(1) = 'N_ITERATIONS', 
+
+POINT_QUANTITY(2) = 'TEMPERATURE', 
+POINT_QUANTITY(3) = 'YI', POINT_QUANTITY_INDEX(3) = 1,
+POINT_QUANTITY(4) = 'YI', POINT_QUANTITY_INDEX(4) = 2, 
+POINT_QUANTITY(5) = 'YI', POINT_QUANTITY_INDEX(5) = 3, 
+
+POINT_QUANTITY(6) = 'REACTION_RATE_K',
+POINT_QUANTITY_INDEX(6) = 0,
+
+POINT_QUANTITY(7) = 'MLR',
+POINT_QUANTITY_INDEX(7) = 1, 
+
+POINT_QUANTITY(8) = 'MLR',
+POINT_QUANTITY_INDEX(8) = 4, 
+
+POINT_QUANTITY(9) = 'TOTAL_MASS',
+POINT_QUANTITY_INDEX(9) = 0, 
+POINT_QUANTITY(10) = 'MLR',
+POINT_QUANTITY_INDEX(10) = 0,
+ / 
+ 
+&GPYRO_SPROPS 
+NSSPEC = 3, 
+
+NAME(1) = 'SOLID', 
+K0Z(1) = 1, 
+R0(1) = 1000, 
+C0(1) = 1500, 
+EMIS(1) = 1.0, 
+
+NAME(2) = 'SOLID_DRY', 
+K0Z(2) = 1, 
+R0(2) = 800, 
+C0(2) = 1000, 
+EMIS(2) = 1.0,
+
+NAME(3) = 'CHAR', 
+K0Z(3) = 1,
+R0(3) = 480, 
+C0(3) = 1600, 
+EMIS(3) = 1.0,
+ / 
+
+&GPYRO_RXNS 
+NRXNS = 2,
+
+ 
+CFROM(1) = 'SOLID' ,
+CTO(1) = 'SOLID_DRY' ,
+Z(1) = 80400000,
+E(1) = 80 ,
+CHI(1) = 1,
+ORDER(1) = 1 ,
+TCRIT(1) = 373.15,
+
+CFROM(2) = 'SOLID_DRY' ,
+CTO(2) = 'CHAR' ,
+Z(2) = 1.97E+15,
+E(2) = 188 ,
+CHI(2) = 1,
+ORDER(2) = 1 ,
+ /
+
+&GPYRO_HGRXNS 
+NHGRXNS = 0, 
+ /
+
+&GPYRO_GPROPS 
+NGSPEC = 4, 
+IBG = 3, 
+IO2 = 2, 
+CPG = 1000, 
+
+NAME(1) = 'H2O' ,
+M(1) = 18 ,
+SIGMA(1) = 5.061 ,
+EPSOK(1) = 254 ,
+C0(1) = 2000,
+NC(1) = 0 ,
+
+NAME(2) = 'OXYGEN' ,
+M(2) = 32 ,
+SIGMA(2) = 3.434 ,
+EPSOK(2) = 113 ,
+C0(2) = 950 ,
+NC(2) = 0 ,
+
+NAME(3) = 'NITROGEN' ,
+M(3) = 28 ,
+SIGMA(3) = 3.667 ,
+EPSOK(3) = 99.8 ,
+C0(3) = 1100 ,
+NC(3) = 0 ,
+
+NAME(4) = 'PYROLYSATE'
+M(4) = 16 ,
+SIGMA(4) = 3.667 ,
+EPSOK(4) = 99.8 ,
+C0(4) = 2000 ,
+NC(4) = 0 ,
+ /
+
+&GPYRO_GYIELDS 
+GYIELDS(1,1) = 1,
+GYIELDS(2,1) = 0,
+GYIELDS(3,1) = 0,
+GYIELDS(4,1) = 0,
+
+GYIELDS(1,2) = 0,
+GYIELDS(2,2) = 0,
+GYIELDS(3,2) = 0,
+GYIELDS(4,2) = 1,
+ /
+
+&GPYRO_HGYIELDS 
+ /
+
+&GPYRO_CASES 
+NCASES = 1, 
+IMESH(1) = 1, 
+TSTOP(1) = 18000, 
+ZEROD(1) = .TRUE., 
+BETA(1) = 1,
+ /
+
+
+&GPYRO_IC 
+NIC = 1, 
+YI0(1,1) = 1, 
+YJ0(1,1) = 0, 
+YJ0(1,2) = 0, 
+YJ0(1,3) = 1, 
+YJ0(1,4) = 0, 
+ /
+
+&GPYRO_ALLBC 
+NSURF_IDX = 0,
+ /
+
+&GPYRO_GEOM 
+NMESH = 1, 
+NOBST = 0, 
+ZDIM(1) = 1, 
+NCELLZ(1) = 1, 
+XDIM(1) = 1, 
+NCELLX(1) = 1, 
+YDIM(1) = 1, 
+NCELLY(1) = 1, 
+ /
+
+&GA_PHI 
+NPHI = 0, 
+ /
+
+&GA_VARS 
+NGENE = 0, 
+ / 
+

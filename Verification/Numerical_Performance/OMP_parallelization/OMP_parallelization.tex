@@ -1,0 +1,65 @@
+\ifdefined\standalone
+\documentclass[12pt]{article}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[a4paper, margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage[hidelinks]{hyperref}
+
+\begin{document}
+\fi
+
+\section{Verification of OpenMP Parallelization}
+
+This verification case reproduces the reference cone calorimeter setup (Section \ref{sec:ref_cone_calo}). The simulation was tested with different numbers of CPUs to evaluate parallel performance and robustness.
+
+The chosen mesh contains 5000 cells, with a fixed time step of \(\Delta t = 0.5\,\mathrm{s}\) and a total simulation time of 200\,s.
+
+Parallel efficiency is analyzed using the \textit{speedup}, defined as the ratio of the CPU time on a single processor to the CPU time on \(N\) processors:
+
+\begin{equation}
+S(N) = \frac{T(1)}{T(N)}
+\label{eq:speedup}
+\end{equation}
+
+where \(T(N)\) is the execution time using \(N\) processors.
+
+Amdahl's law is used to estimate the parallelizable fraction \(f\) of the computation, which represents the portion of the program that can be executed in parallel. The remaining fraction \(1-f\) corresponds to the inherently sequential part. This relationship is expressed as:
+
+\begin{equation}
+S(N) = \frac{1}{(1-f) + \frac{f}{N}}
+\label{eq:amdahl}
+\end{equation}
+
+where \(N\) is the number of processors.
+
+If the estimated parallelizable fraction \(f\) exceeds approximately 65\%, the parallelization is considered effective, providing significant performance gains.
+
+Additionally, the mass loss rate (MLR) output is monitored to ensure result consistency. Incorrect handling of shared or private variables during parallelization can cause bugs and result in differing outputs depending on the CPU count.
+
+It is generally recommended not to assign fewer than 1000 cells per CPU, as below this threshold, the benefits of parallelization diminish relative to CPU resources allocated. Communication overhead between CPUs may outweigh computation time, potentially making parallelization more costly than beneficial.
+
+\vspace{1em}
+
+\begin{figure}[H]
+  \centering
+  \begin{minipage}[b]{0.48\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{omp_scaling.png}
+    \caption{Speedup with fitting by Amdahl's law and CPU time.}
+    \label{fig:speedup_amdahl}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.48\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{omp_mlr_comparison.png}
+    \caption{MLR for different numbers of CPUs.}
+    \label{fig:mlr_comparison}
+  \end{minipage}
+\end{figure}
+
+\ifdefined\standalone
+\end{document}
+\fi
+
+

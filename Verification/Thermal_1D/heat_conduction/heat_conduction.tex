@@ -1,0 +1,57 @@
+\ifdefined\standalone
+\documentclass[12pt]{article}
+\usepackage{graphicx}
+\usepackage{float}    % <-- For [H] figure placement
+\usepackage[a4paper, margin=1in]{geometry} % <-- For better margins
+\usepackage[utf8]{inputenc}
+\usepackage{textcomp}  % <-- for \textdegree
+\usepackage{amsmath}
+\usepackage[hidelinks]{hyperref} % <- hypertext
+\begin{document}
+\fi
+
+\section{Heat Conduction} 
+Four distinct cases of one-dimensional transient heat conduction through a $L=$0.1 m thick plate are analyzed. In each case, the plate is initially at a uniform temperature of $T_{ini}=$20\textdegree{}C and is exposed on one side to ambient air at $T_\infty=$120\textdegree{}C with convection, while the other side is perfectly insulated. The key parameters for each case are summarized in the table \ref{tab:cases_properties}. The evolution of the temperature profiles can be seen in fig. \ref{fig:HC_ABCD}.
+
+
+The Analytical temperature field in the plate is given by Incropera et al \cite{incropera_fundamentals_2007}:
+\begin{equation}
+T(z,t) = T_\infty + (T_{ini} - T_\infty)\sum_{n=1}^{\infty} C_n \cos\!\left(\beta_n \frac{z}{L}\right)
+\exp\!\left(-\beta_n^2 \frac{\alpha t}{L^2}\right)
+\label{Eq:Thermal_thranscendantale}
+\end{equation}
+where $\alpha = k/(\rho c)$ is the thermal diffusivity, $C_n = \dfrac{4\sin(\beta_n)}{2\beta_n + \sin(2\beta_n)}$ a constant, and the eigenvalues $\beta_n$ satisfy $\beta_n \tan(\beta_n) = Bi$, where $Bi$ is the Biot number.
+
+\vspace{-0.5cm}
+
+\begin{table}[H]
+\centering
+\caption{Properties for Each Heat Conduction Case}
+\label{tab:cases_properties}
+\begin{tabular}{|l|c|c|c|c|}
+\hline
+\textbf{Parameter} & \textbf{Case A} & \textbf{Case B} & \textbf{Case C} & \textbf{Case D} \\ \hline
+Thermal Conductivity, $k$ ($\mathrm{W\,m^{-1}\,K^{-1}}$) & 0.1 & 0.1 & 1.0 & 10.0 \\
+Density, $\rho$ ($\mathrm{kg\,m^{-3}}$) & 100 & 100 & 1000 & 10000 \\
+Specific Heat, $c$ ($\mathrm{kJ\,kg^{-1}\,K^{-1}}$) & 1000 & 1000 & 1000 & 1000 \\
+Convective Coefficient, $h$ $\mathrm{W\,m^{-2}\,K^{-1}}$  & 100 & 10 & 10 & 10 \\ \hline
+\textbf{Biot Number, $Bi = \frac{hL}{k}$} & \textbf{100} & \textbf{10} & \textbf{1} & \textbf{0.1} \\ \hline
+\end{tabular}
+\end{table}
+
+\vspace{-0.5cm}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.48\textwidth]{heat_conduction_a/heat_conduction_a_results.png}
+\includegraphics[width=0.48\textwidth]{heat_conduction_b/heat_conduction_b_results.png}
+\includegraphics[width=0.48\textwidth]{heat_conduction_c/heat_conduction_c_results.png}
+\includegraphics[width=0.48\textwidth]{heat_conduction_d/heat_conduction_d_results.png}
+\vspace{-0.5cm}
+\caption{Temperature evolution for Case A (top-left), B (top-right), C (bottom-left) and Case D (bottom-right).}
+\label{fig:HC_ABCD}
+\end{figure}
+
+\ifdefined\standalone
+\end{document}
+\fi

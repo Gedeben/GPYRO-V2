@@ -1,0 +1,82 @@
+\ifdefined\ThermalOneD
+\documentclass[12pt]{report}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[a4paper, margin=1in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{textcomp}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{enumitem}
+\usetikzlibrary{decorations.pathmorphing,patterns}
+\usepackage[hidelinks]{hyperref} % <- hypertext
+\usepackage{caption}
+
+% <- Define folder macros for modularity
+\newcommand{\RADCONVDIR}{radiation_convection}  % <-Radiative + convection case
+\newcommand{\HEATCONDDIR}{heat_conduction}      % Heat conduction 
+\newcommand{\HKCDIR}{heat_conduction_kc}        % Heat conduction with K(T) and C(T)
+\newcommand{\CONVDIR}{convective_cooling}       % Convective cooling
+\newcommand{\STEELDIR}{insulated_steel_plate}   % insulated steel plate
+\newcommand{\RADLOSSLDIR}{radiation_loss}       % Radiative loss
+\newcommand{\FIXEDDIR}{fixed_temp_sides}        % fixed boundary temperatures
+\newcommand{\SURFRADDIR}{radiation_1d}          % Surface radiation
+\newcommand{\DEPTHDIR}{radiation_depth}         % Depth radiation
+\newcommand{\DEPTHCONVDIR}{rad_conv_depth}      % Depth radiation
+
+\begin{document}
+\fi
+
+
+\graphicspath{
+  {\HEATCONDDIR/}
+  {\HKCDIR/}
+  {\CONVDIR/}
+  {\STEELDIR/}
+  {\RADCONVDIR/}
+  {\RADLOSSLDIR/}
+  {\FIXEDDIR/}
+  {\SURFRADDIR/}
+  {\DEPTHDIR/}
+  {\DEPTHCONVDIR/}
+}
+
+
+
+\chapter{ Thermal 1D}
+
+\newpage
+\input{\HEATCONDDIR/heat_conduction.tex}
+
+\newpage
+\input{\HKCDIR/heat_conduction_kc.tex}
+
+\newpage
+\input{\CONVDIR/convective_cooling.tex}
+
+\newpage
+\input{\STEELDIR/insulated_steel_plate.tex}
+
+\newpage
+\input{\FIXEDDIR/fixed_temp.tex}
+
+\newpage
+\input{\RADLOSSLDIR/radiation_loss.tex}
+
+\newpage
+\input{\SURFRADDIR/radiation_1d.tex}
+
+\newpage
+\input{\DEPTHDIR/rad_depth.tex}
+
+\newpage
+\input{\DEPTHCONVDIR/rad.tex}
+
+\newpage
+\input{\RADCONVDIR/rad_conv.tex}
+
+\ifdefined\ThermalOneD
+\end{document}
+\fi
+

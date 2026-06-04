@@ -1,0 +1,163 @@
+//
+&GPYRO_GENERAL 
+DT0 = 1000,
+TAMB = 300,
+TREF = 300,
+SOLVE_GAS_YJ = .FALSE.,
+SOLVE_GAS_ENERGY = .FALSE.,
+SOLVE_PRESSURE = .FALSE.,
+USE_TOFH_NEWTON = .FALSE.,
+SHYI_CORRECTION = .TRUE.,
+NCOEFF_UPDATE_SKIP = 1,
+
+ / 
+
+&GPYRO_OUTPUT 
+CASENAME = 'insulated_steel_plate',
+
+N_POINT_QUANTITIES = 4,
+N_PROFILE_QUANTITIES = 1,
+
+DTDUMP_POINT = 10,
+DTDUMP_PROFILE = 1000,
+
+POINT_QUANTITY(1) = 'N_ITERATIONS', 
+ 
+POINT_QUANTITY(2) = 'TEMPERATURE',  
+POINT_Z(2) = 0.0, 
+ 
+
+POINT_QUANTITY(3) = 'TEMPERATURE', 
+POINT_Z(3) = 0.025, 
+
+POINT_QUANTITY(4) = 'TEMPERATURE', 
+POINT_Z(4) = 0.05, 
+
+
+PROFILE_QUANTITY(1) = 'TEMPERATURE', 
+PROFILE_DIRECTION(1) = 'z', 
+PROFILE_ISKIP(1) = 1,  
+ / 
+ 
+&GPYRO_SPROPS 
+NSSPEC = 2, 
+
+NAME(1) = 'steel', 
+K0Z(1) = 50, 
+R0(1) = 7500, 
+C0(1) = 500, 
+EMIS(1) = 0.0, 
+KAPPA(1) = 9D9, 
+
+NAME(2) = 'insulation', 
+K0Z(2) = 0.2, 
+R0(2) = 200, 
+C0(2) = 1000, 
+EMIS(2) = 0.0, 
+KAPPA(2) = 9D9,
+ / 
+
+&GPYRO_RXNS 
+NRXNS = 0, 
+ /
+
+&GPYRO_HGRXNS 
+NHGRXNS = 0, 
+ /
+
+&GPYRO_GPROPS 
+NGSPEC = 1, 
+NAME(1) = 'AIR' ,
+
+ /
+
+&GPYRO_GYIELDS 
+GYIELDS(1,1) = 1,
+ /
+
+&GPYRO_HGYIELDS 
+ /
+
+&GPYRO_CASES 
+NCASES = 1, 
+IMESH(1) =1
+TSTOP(1) = 36000, 
+ /
+
+
+&GPYRO_IC 
+NIC = 2, 
+TMP_INITIAL(1) = 293.15, 
+YI0(1,1) = 1, 
+YJ0(1,1) = 1, 
+
+
+TMP_INITIAL(2) = 293.15,  
+YI0(2,2) = 1, 
+YJ0(2,1) = 1, 
+ /
+
+&GPYRO_ALLBC 
+NSURF_IDX = 2, 
+
+SURF_IDX(1) = 1, 
+QE(1) = 0, 
+HC(1) = 10, 
+TINF(1) = 753.15, 
+RERADIATION(1) = .FALSE., 
+YJINF(1,1)=1
+
+SURF_IDX(2) = 2, 
+QE(2) = 0, 
+HC(2) = 10, 
+TINF(2) = 293.15, 
+RERADIATION(2) = .FALSE., 
+YJINF(2,1)=1
+
+
+ /
+
+&GPYRO_GEOM 
+NMESH = 1, 
+NOBST = 3, 
+ZDIM(1) = 0.05, 
+NCELLZ(1) = 200, 
+XDIM(1) = 0.1, 
+NCELLX(1) = 1, 
+YDIM(1) = 0.1, 
+NCELLY(1) = 1,  
+DEFAULT_SURF_IDX(1,5) = 1, 
+DEFAULT_SURF_IDX(1,6) = 2, 
+DEFAULT_IC(1) = 1, 
+
+IMESH(1) = 1, 
+Z1(1) = 0, 
+Z2(1) = 0.02, 
+X1(1) = 0, 
+X2(1) = 0.1, 
+Y1(1) = 0, 
+Y2(1) = 0.1, 
+ICNUM(1) = 2, 
+SURF_IDX2D(1,6) = 2,
+
+IMESH(2) = 1, 
+Z1(2) = 0.02, 
+Z2(2) = 0.03, 
+X1(2) = 0, 
+X2(2) = 0.1, 
+Y1(2) = 0, 
+Y2(2) = 0.1, 
+ICNUM(2) = 1, 
+
+IMESH(3) = 1, 
+Z1(3) = 0.03, 
+Z2(3) = 0.05, 
+X1(3) = 0, 
+X2(3) = 0.1, 
+Y1(3) = 0, 
+Y2(3) = 0.1, 
+ICNUM(3) = 2, 
+SURF_IDX2D(3,5) = 1,
+ /
+
+

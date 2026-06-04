@@ -53,7 +53,6 @@ TYPE :: ALLBC_TYPE
    REAL(EB) :: T
    REAL(EB) :: QE
    REAL(EB) :: HC
-   REAL(EB) :: NHC   
    REAL(EB) :: TINF
    LOGICAL  :: RERADIATION 
    REAL(EB) :: TFIXED
@@ -183,8 +182,8 @@ TYPE :: GPYRO_STORAGE_TYPE
   REAL(EB), ALLOCATABLE :: TP_W1(:,:,:), TP_W2(:,:,:)           ! Solid Temperature work array
   REAL(EB), ALLOCATABLE :: HP_W1(:,:,:), HP_W2(:,:,:)           ! Solid Hentalpy work array
   REAL(EB), ALLOCATABLE :: RP_W1(:,:,:), RP_W2(:,:,:)           ! Bulk Density work array
-  REAL(EB), ALLOCATABLE :: DLTZ_W1(:,:,:), DLTZ_W2(:,:,:)       ! Z- mesh cell size work array
-  REAL(EB), ALLOCATABLE :: RDLTZ_W1(:,:,:), RDLTZ_W2(:,:,:)     ! Mass (rho*dz) work array
+  REAL(EB), ALLOCATABLE :: DZ_W1(:,:,:), DZ_W2(:,:,:)           ! Z- mesh cell size work array
+  REAL(EB), ALLOCATABLE :: MASS_W1(:,:,:), MASS_W2(:,:,:)       ! Mass (rho*dv) work array
   REAL(EB), ALLOCATABLE :: RSP_W1(:,:,:), RSP_W2(:,:,:)         ! Solid Density work array
 
   REAL(EB), ALLOCATABLE :: M_W1(:,:,:), M_W2(:,:,:)             ! Mean Moleculare weigth work array
@@ -197,11 +196,10 @@ TYPE :: GPYRO_STORAGE_TYPE
   !DIM (NSSPEC, NCELLZ, NCELLX, NCELLY)
   REAL(EB), ALLOCATABLE :: YI_W1(:,:,:,:), YI_W2(:,:,:,:)       ! Solid mass fractions work array
   REAL(EB), ALLOCATABLE :: XI_W1(:,:,:,:), XI_W2(:,:,:,:)       ! Volume fraction work array
-  REAL(EB), ALLOCATABLE :: RYIDZP_W1(:,:,:,:), RYIDZP_W2(:,:,:,:)           ! rho*Yi*Dz rho*Yi*Dz work array
-  REAL(EB), ALLOCATABLE :: RYIDZSIGMA_W1(:,:,:,:), RYIDZSIGMA_W2(:,:,:,:)   ! rho*Yi*Dz summation work array
+  REAL(EB), ALLOCATABLE :: MASS_I_W1(:,:,:,:), MASS_I_W2(:,:,:,:)           !  rho*Yi*Dv work array
+  REAL(EB), ALLOCATABLE :: TIME_INTEGRATED_MASS_PRODUCED_W1(:,:,:,:), TIME_INTEGRATED_MASS_PRODUCED_W2(:,:,:,:)   ! rho*Yi*Dv summation work array
 
-!DIM (NGSPEC, NCELLZ, NCELLX, NCELLY)
-
+  !DIM (NGSPEC, NCELLZ, NCELLX, NCELLY)
   REAL(EB), ALLOCATABLE :: YJG_W1(:,:,:,:), YJG_W2(:,:,:,:)     ! Gas-phase mass fractions work array
 
 END TYPE GPYRO_STORAGE_TYPE
@@ -227,43 +225,83 @@ TYPE :: SOLVER_CONVERGENCE_INFO
 END TYPE
 
 
-! Boundary condition type - holds all "calculated" quantities for each BC.
-! In standalone and genetic algorithm implementations, there is only a single
-! one-dimensional boundary condition, but when coupled to FDS there may be 
-! hundreds or thousands of separate boundary conditions, and using this 
-! "TYPE" is a convenient way to track each one. 
-!
-TYPE  :: GPYRO_MESH_TYPE
+TYPE :: GPYRO_MESH_TYPE
 
-   REAL(EB) :: INITIAL_MASS
-
-   REAL(EB) :: GX   !x-component of gravity vector
-   REAL(EB) :: GY   !y-component of gravity vector
-   REAL(EB) :: GZ   !z-component of gravity vector   
-
-   REAL(EB) :: X0=0D0   !x absolute coordinate for FDS
-   REAL(EB) :: Y0=0D0   !y absolute coordinate for FDS
-   REAL(EB) :: Z0=0D0   !z absolute coordinate for FDS
-   
-   REAL(EB) :: ZDIM=0D0
-   REAL(EB) :: XDIM=0D0
-   REAL(EB) :: YDIM=0D0
+   REAL(EB) :: ZDIM = 0D0
+   REAL(EB) :: XDIM = 0D0
+   REAL(EB) :: YDIM = 0D0
 
    INTEGER :: NCELLZ
    INTEGER :: NCELLX
    INTEGER :: NCELLY
-   INTEGER :: DIMENSION ! 0if 0D, 1 if 1D, 2 if 2D, 3 if 3D
-   LOGICAL :: HALF_CELLS_AT_BC = .TRUE.
+   INTEGER :: DIMENSION   ! 0 if 0D, 1 if 1D, 2 if 2D, 3 if 3D
+
+   REAL(EB) :: X0=0D0   !x absolute coordinate for FDS
+   REAL(EB) :: Y0=0D0   !y absolute coordinate for FDS
+   REAL(EB) :: Z0=0D0   !z absolute coordinate for FDS
 
    REAL(EB), DIMENSION(1:3) :: MESH_CENTROIDS=0D0, MESH_EXTENTS=0D0, MESH_LL=0D0 !, MESH_G
 
+   LOGICAL :: HALF_CELLS_AT_BC = .TRUE.
+   LOGICAL :: DEFORMATION ! allow deformation ?
+
+   LOGICAL, POINTER, DIMENSION (:,:,:)   :: IMASK !Geometry mask (True for blocked off, False for not blocked off)
+
+   INTEGER, POINTER, DIMENSION (:,:,:)   :: ID_OBST ! Index of the OBST in the cells
+
+   !Coordinates of cell center in z, x, and y directions:
+   REAL(EB), POINTER, DIMENSION(:,:,:) :: Z ! Z coordinate 
+   REAL(EB), POINTER, DIMENSION(:)     :: X ! X coordinate
+   REAL(EB), POINTER, DIMENSION(:)     :: Y ! Y coordinate
+
+   REAL(EB), POINTER, DIMENSION(:,:,:) :: DZ  ! Cell size in z direction
+   REAL(EB), POINTER, DIMENSION(:,:,:) :: DZN ! Delta z at the new time step
+   REAL(EB), POINTER, DIMENSION(:,:,:) :: DX   ! Cell size in x direction
+   REAL(EB), POINTER, DIMENSION(:,:,:) :: DY   ! Cell size in y direction
+
+   !Distance between cell centers in z, x, and y directions
+   REAL(EB), POINTER, DIMENSION(:,:,:) :: DZT  ! Dz top
+   REAL(EB), POINTER, DIMENSION(:,:,:) :: DZB  ! Dz bottom
+   REAL(EB), POINTER, DIMENSION(:,:,:) :: DXW  ! Dx west
+   REAL(EB), POINTER, DIMENSION(:,:,:) :: DXE  ! Dx east
+   REAL(EB), POINTER, DIMENSION(:,:,:) :: DYN  ! Dy north
+   REAL(EB), POINTER, DIMENSION(:,:,:) :: DYS  ! Dy south
+
+   REAL(EB), POINTER, DIMENSION(:,:,:) :: DV   ! Cell volume (1D→m, 2D→m², 3D→m³)
+
+   ! Surface area of the cell
+   REAL(EB), POINTER, DIMENSION(:,:,:) :: SXE  ! East
+   REAL(EB), POINTER, DIMENSION(:,:,:) :: SXW  ! West
+   REAL(EB), POINTER, DIMENSION(:,:,:) :: SYN  ! North
+   REAL(EB), POINTER, DIMENSION(:,:,:) :: SYS  ! South
+   REAL(EB), POINTER, DIMENSION(:,:,:) :: DXDY ! Dx * Dy (z-direction)
+
+   !Geometric coefficient introduced for diffusive solvers
+   REAL(EB), POINTER, DIMENSION(:,:,:) :: GZT   ! Top
+   REAL(EB), POINTER, DIMENSION(:,:,:) :: GZB   ! Bottom
+   REAL(EB), POINTER, DIMENSION(:,:,:) :: GXE   ! west
+   REAL(EB), POINTER, DIMENSION(:,:,:) :: GXW   ! East
+   REAL(EB), POINTER, DIMENSION(:,:,:) :: GYN   ! North
+   REAL(EB), POINTER, DIMENSION(:,:,:) :: GYS   ! South
+
+
+   REAL(EB), POINTER, DIMENSION(:,:,:) :: TAN_X  
+   REAL(EB), POINTER, DIMENSION(:,:,:) :: TAN_Y  
+   REAL(EB), POINTER, DIMENSION(:,:,:) :: TAN_ZX
+   REAL(EB), POINTER, DIMENSION(:,:,:) :: TAN_ZY
+
+END TYPE
+
+
+TYPE  ::  GPYRO_DOMAIN_TYPE
+
+   REAL(EB) :: TOTAL_INITIAL_MASS
+
+   REAL(EB) :: GX   !x-component of gravity vector
+   REAL(EB) :: GY   !y-component of gravity vector
+   REAL(EB) :: GZ   !z-component of gravity vector
+
    LOGICAL, POINTER, DIMENSION (:,:,:) :: NEEDSBCT, NEEDSBCB, NEEDSBCW, NEEDSBCE, NEEDSBCN, NEEDSBCS
-   INTEGER, POINTER, DIMENSION (:,:,:) :: SURF_IDX_BCT
-   INTEGER, POINTER, DIMENSION (:,:,:) :: SURF_IDX_BCB
-   INTEGER, POINTER, DIMENSION (:,:,:) :: SURF_IDX_BCW
-   INTEGER, POINTER, DIMENSION (:,:,:) :: SURF_IDX_BCE
-   INTEGER, POINTER, DIMENSION (:,:,:) :: SURF_IDX_BCN
-   INTEGER, POINTER, DIMENSION (:,:,:) :: SURF_IDX_BCS
 
    !REAL(EB), POINTER, DIMENSION (:,:,:) :: HCRT !contact resistance (top)
    !REAL(EB), POINTER, DIMENSION (:,:,:) :: HCRB !contact resistance (bottom)
@@ -273,29 +311,32 @@ TYPE  :: GPYRO_MESH_TYPE
    !REAL(EB), POINTER, DIMENSION (:,:,:) :: HCRN !contact resistance (north)
 
    TYPE(GPYRO_STORAGE_TYPE) :: STORAGE
+   TYPE(GPYRO_MESH_TYPE) :: MESH
 
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: TP  !Solid T at point P
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: TPN !Solid T at point P (new)
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: HP  !Solid enthalpy at point P
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: HPN !Solid enthalpy at point P (new)
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: TG  !Gas T at point P
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: TGN !Gas T at point P (new)
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: HG  !Gas enthalpy at point P
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: HGN !Gas enthalpy at point P (new)
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: RG  !Gas density at cell P
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: RGN !Gas density at cell P (new)
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: P   !Pressure at point P
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: PN  !Pressure at point P (new)
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: M   !Mean Moleculare weigth at point P
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: MN  !Mean Moleculare weigth at point P(new)
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: RP  !Density at point P 
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: RPN !Density at point P (new)
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: RSP  !Solid density at point P 
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: RSPN !Solid density at point P (new)
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: RDLTZ  !Old rho*DZ
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: RDLTZN !New rho*DZ
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: POROSS   !Porosity at point P
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: POROSSN  !Porosity at point P (new)
+   !!All the following quantities are field quantities approximation at the center of the cells!!
+
+   REAL(EB), POINTER, DIMENSION (:,:,:) :: TP  !Solid Temperature field at last time step
+   REAL(EB), POINTER, DIMENSION (:,:,:) :: TPN !Solid Temperature field at New time step
+   REAL(EB), POINTER, DIMENSION (:,:,:) :: HP  !Solid enthalpy field at last time step
+   REAL(EB), POINTER, DIMENSION (:,:,:) :: HPN !Solid enthalpy field at New time step
+   REAL(EB), POINTER, DIMENSION (:,:,:) :: TG  !Gas Temperature field at last time step
+   REAL(EB), POINTER, DIMENSION (:,:,:) :: TGN !Gas Temperature field at New time step
+   REAL(EB), POINTER, DIMENSION (:,:,:) :: HG  !Gas enthalpy field at last time step
+   REAL(EB), POINTER, DIMENSION (:,:,:) :: HGN !Gas enthalpy field at New time step
+   REAL(EB), POINTER, DIMENSION (:,:,:) :: RG  !Gas density field at last time step
+   REAL(EB), POINTER, DIMENSION (:,:,:) :: RGN !Gas densityfield at New time step
+   REAL(EB), POINTER, DIMENSION (:,:,:) :: P   !Pressure field at last time step
+   REAL(EB), POINTER, DIMENSION (:,:,:) :: PN  !Pressure field at New time step
+   REAL(EB), POINTER, DIMENSION (:,:,:) :: M   !Mean Moleculare weigth field at last time step
+   REAL(EB), POINTER, DIMENSION (:,:,:) :: MN  !Mean Moleculare weigth field at New time step
+   REAL(EB), POINTER, DIMENSION (:,:,:) :: RP  !Solid bulk Density field at last time step
+   REAL(EB), POINTER, DIMENSION (:,:,:) :: RPN !Solid bulk Density field at new time step
+   REAL(EB), POINTER, DIMENSION (:,:,:) :: RSP  !Solid skeleton density field at last time step
+   REAL(EB), POINTER, DIMENSION (:,:,:) :: RSPN !Solid skeleton density field at New time step
+   REAL(EB), POINTER, DIMENSION (:,:,:) :: MASS  ! Solid mass field at last time step (rho*Dv)
+   REAL(EB), POINTER, DIMENSION (:,:,:) :: MASS_N ! Solid mass field at new time step 
+   REAL(EB), POINTER, DIMENSION (:,:,:) :: POROSS   !Porosity field at last time step
+   REAL(EB), POINTER, DIMENSION (:,:,:) :: POROSSN  !Porosity field at New time step
    REAL(EB), POINTER, DIMENSION (:,:,:) :: HCV  !Volumetric heat transfer coefficient
    REAL(EB), POINTER, DIMENSION (:,:,:) :: RE  !Reynolds number
    REAL(EB), POINTER, DIMENSION (:,:,:) :: NU  !Nusselt number
@@ -314,9 +355,6 @@ TYPE  :: GPYRO_MESH_TYPE
 
    REAL(EB), POINTER, DIMENSION (:,:,:)   :: D12 !Diffusion coefficient
 
-   LOGICAL, POINTER, DIMENSION (:,:,:)   :: IMASK !Geometry mask (True for blocked off, False for not blocked off)
-   
-
    REAL(EB), POINTER, DIMENSION (:,:,:,:)   :: YI  !Condensed-species mass fractions
    REAL(EB), POINTER, DIMENSION (:,:,:,:)   :: YIN !Same, but "new"
    REAL(EB), POINTER, DIMENSION (:,:,:,:)   :: HI  !Enthalpy of solid species i (hi)
@@ -327,12 +365,12 @@ TYPE  :: GPYRO_MESH_TYPE
    REAL(EB), POINTER, DIMENSION (:,:,:,:)   :: YJG  !Gas-phase mass fractions
    REAL(EB), POINTER, DIMENSION (:,:,:,:)   :: YJGN !Same, but "new"
 
-   REAL(EB), POINTER, DIMENSION (:,:,:,:)   :: RYIDZ0  !rho*Yi*Dz (at t = 0)
+   REAL(EB), POINTER, DIMENSION (:,:,:,:)   :: INITIAL_MASS !Mass initial (at t = 0)
          
-   REAL(EB), POINTER, DIMENSION (:,:,:,:)   :: RYIDZP  !rho*Yi*Dz at point P
-   REAL(EB), POINTER, DIMENSION (:,:,:,:)   :: RYIDZPN !same, but "new"
-   REAL(EB), POINTER, DIMENSION (:,:,:,:)   :: RYIDZSIGMA  !rho*Yi*Dz summation
-   REAL(EB), POINTER, DIMENSION (:,:,:,:)   :: RYIDZSIGMAN !rho*Yi*Dz0 summation 
+   REAL(EB), POINTER, DIMENSION (:,:,:,:)   :: MASS_I  ! Mass of species i (rho*Yi*Dv) at point P
+   REAL(EB), POINTER, DIMENSION (:,:,:,:)   :: MASS_IN ! same, but "new"
+   REAL(EB), POINTER, DIMENSION (:,:,:,:)   :: TIME_INTEGRATED_MASS_PRODUCED  ! m_0i + int\(w_fi*dv*dt)
+   REAL(EB), POINTER, DIMENSION (:,:,:,:)   :: TIME_INTEGRATED_MASS_PRODUCEDN ! m_0i + int\(w_fi*dv*dt) new
 
    REAL(EB), POINTER, DIMENSION (:,:,:,:)   :: UNREACTEDNESS ! 1 minus conversion
    REAL(EB), POINTER, DIMENSION (:,:,:,:)   :: XI  !Volume fraction of solid species i
@@ -363,7 +401,6 @@ TYPE  :: GPYRO_MESH_TYPE
    REAL(EB), POINTER, DIMENSION (:,:,:,:,:) :: GOMEGA
 
    LOGICAL, POINTER, DIMENSION(:,:,:,:) :: IS_REACTING ! Is a reaction currently happening in this cell?
-   LOGICAL :: DEFORMATION ! allow deformation ?
    ! HGRR is homogeneous gaseous reaction rate
    ! OMEGAGDJL is Omega (gaseous) - destruction of gaseous species J from reaction l (L)	   
    ! HGOMEGA stores the formation/destruction of gaseous species from 
@@ -373,16 +410,17 @@ TYPE  :: GPYRO_MESH_TYPE
    REAL(EB), POINTER, DIMENSION (:,:,:,:,:) :: HGOMEGA
 
    REAL(EB), POINTER, DIMENSION (:,:,:)     :: QSG !Heat transfer from solid to gas
+   REAL(EB), POINTER, DIMENSION (:,:,:)     :: QSC !Chimical source terme in the solid phase
+   REAL(EB), POINTER, DIMENSION (:,:,:)     :: QSBC !Equivalent source terme introduce by the Boundary condition in the solid phase
    LOGICAL , POINTER, DIMENSION (:,:,:)     :: CONSUMED !Is a cell completely consumed?
 
    REAL(EB), POINTER, DIMENSION (:,:,:,:) :: MDOTPPZ !Mass flux of each species in the z-direction
-                 
+   REAL(EB), POINTER, DIMENSION (:,:,:) :: MDOTPPZT ! Top Mass flux total in the z-direction 
+   REAL(EB), POINTER, DIMENSION (:,:,:) :: MDOTPPZB ! Bottom Mass flux total in the z-direction 
+        
    REAL(EB), POINTER, DIMENSION(:,:) :: THICKNESS    !Thickness
 
    !New section for 3D solvers:
-   REAL(EB), POINTER, DIMENSION (:) :: Z ! Z coordinate
-   REAL(EB), POINTER, DIMENSION (:) :: X ! X coordinate
-   REAL(EB), POINTER, DIMENSION (:) :: Y ! Y coordinate
 
    REAL(EB), POINTER, DIMENSION (:,:,:) :: FT 
    REAL(EB), POINTER, DIMENSION (:,:,:) :: FB 
@@ -390,26 +428,6 @@ TYPE  :: GPYRO_MESH_TYPE
    REAL(EB), POINTER, DIMENSION (:,:,:) :: FW 
    REAL(EB), POINTER, DIMENSION (:,:,:) :: FN 
    REAL(EB), POINTER, DIMENSION (:,:,:) :: FS 
-
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: DLTZ  ! DLTZ  - Delta z 
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: DLTX  ! DLTX  - Delta x 
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: DLTY  ! DLTY  - Delta y 
-   
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: DLTZN ! DLTZN - Delta z (new), i.e. at t + Dt
-   !REAL(EB), POINTER, DIMENSION (:,:,:) :: DLTXN ! DLTXN - Delta x (new), i.e. at t + Dt
-   !REAL(EB), POINTER, DIMENSION (:,:,:) :: DLTYN ! DLTYN - Delta y (new), i.e. at t + Dt
-
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: DZT  !Dz top
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: DZB  !Dz bottom
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: DXW  !Dx west
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: DXE  !Dx east
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: DYN  !Dy north
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: DYS  !Dy south
-
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: DV     !Dx*Dy*Dz (1D->m, 2D->m², 3D -> m³)
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: DXDY   !Dx*Dy
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: DXDZ   !Dx*Dz
-   REAL(EB), POINTER, DIMENSION (:,:,:) :: DYDZ   !Dy*Dz
 
    REAL(EB), POINTER, DIMENSION (:,:,:) :: KZ   !Effective Thermal conductivity in z direction
    REAL(EB), POINTER, DIMENSION (:,:,:) :: KX   !Effective Thermal conductivity in x direction
@@ -494,8 +512,6 @@ TYPE  :: GPYRO_MESH_TYPE
    REAL(EB) :: DTIME_P
    REAL(EB) :: DTIME_HG
    
-   TYPE (GPYRO_BC_TYPE), POINTER, DIMENSION(:,:,:,:) :: GPYRO_BOUNDARY_CONDITION
-
    ! Variables for orientation: 
    LOGICAL :: ORIENTATION_FILE_EXISTS
    CHARACTER(200) :: ORIENTATION_FILE
@@ -525,14 +541,13 @@ END TYPE
 
 
 
-TYPE (GPYRO_MESH_TYPE), ALLOCATABLE, TARGET, DIMENSION(:) :: GPM
-TYPE (GPYRO_MESH_TYPE), POINTER :: G
+TYPE ( GPYRO_DOMAIN_TYPE), ALLOCATABLE, TARGET, DIMENSION(:) :: GPM
+TYPE ( GPYRO_DOMAIN_TYPE), POINTER :: G
 
 TYPE :: GPYRO_BC_TYPE
    REAL(EB) :: QE
-   REAL(EB) :: QENET  
+   REAL(EB) :: QENET
    REAL(EB) :: HC0
-   REAL(EB) :: NHC   
    REAL(EB) :: TINF
    REAL(EB) :: TFIXED
    REAL(EB) :: HFIXED
@@ -552,42 +567,70 @@ TYPE :: GPYRO_BC_TYPE
    REAL(EB) :: T_SURFACE_OLD
    REAL(EB) :: QRADOUT
    REAL(EB) :: QCONF
-   REAL(EB), POINTER, DIMENSION(:) :: MASSFLUX  ! Masse flux in Kg.m-2.s-2
-   REAL(EB), POINTER, DIMENSION(:) :: MLR       ! Masse Loss Rate in Kg/s
+   REAL(EB), POINTER, DIMENSION(:) :: MASSFLUX  ! Mass flux in Kg.m-2.s-2
+   REAL(EB), POINTER, DIMENSION(:) :: MLR       ! Mass Loss Rate in Kg/s
 END TYPE
 
-!TYPE (GPYRO_BC_TYPE), ALLOCATABLE, TARGET, DIMENSION(:,:,:,:,:) :: GPYRO_BOUNDARY_CONDITION
-TYPE (GPYRO_BC_TYPE), POINTER, DIMENSION(:,:,:,:) :: GPBCP
+
+! Boundary condition type – stores all “calculated” quantities for each BC.
+! When coupled to FDS, there may be hundreds or thousands of independent 
+! boundary conditions, and using this TYPE helps track each one easily.
 
 TYPE :: GPYRO_BOUNDARYS_INFORMATION
-   INTEGER , POINTER, DIMENSION(:) :: IMESH_GPYRO
-   INTEGER , POINTER, DIMENSION(:) :: IZ_GPYRO
-   INTEGER , POINTER, DIMENSION(:) :: IX_GPYRO
-   INTEGER , POINTER, DIMENSION(:) :: IY_GPYRO
-   INTEGER , POINTER, DIMENSION(:) :: IOR_GPYRO
-   INTEGER , POINTER, DIMENSION(:) :: IOR_FDS
-   INTEGER , POINTER, DIMENSION(:) :: IMESH_FDS ! IF 0 no coupling ;
-                                                ! Positif Coupling with FDS Mesh NB IMESH_FDS;
-                                                ! Negatif Coupling with an other Gpyro mesh nb IMESH_FDS
-   INTEGER , POINTER, DIMENSION(:) :: I_FDS
-   INTEGER , POINTER, DIMENSION(:) :: J_FDS
-   INTEGER , POINTER, DIMENSION(:) :: K_FDS
-   INTEGER , POINTER, DIMENSION(:) :: IW_FDS
-   INTEGER , POINTER, DIMENSION(:) :: RATIO
-   REAL(EB), POINTER, DIMENSION(:) :: DIFF
-   REAL(EB), POINTER, DIMENSION(:) :: XDIFF
-   REAL(EB), POINTER, DIMENSION(:) :: YDIFF
-   REAL(EB), POINTER, DIMENSION(:) :: ZDIFF   
-   REAL(EB), POINTER, DIMENSION(:) :: Z_GPYRO
+
+   ! --- Mesh indices in the GPyro grid ---
+   INTEGER, POINTER, DIMENSION(:) :: IMESH_GPYRO   ! Index of the GPyro mesh associated with this boundary cell
+   INTEGER, POINTER, DIMENSION(:) :: IZ_GPYRO      ! Z-index in the GPyro mesh
+   INTEGER, POINTER, DIMENSION(:) :: IX_GPYRO      ! X-index in the GPyro mesh
+   INTEGER, POINTER, DIMENSION(:) :: IY_GPYRO      ! Y-index in the GPyro mesh
+   INTEGER, POINTER, DIMENSION(:) :: IOR_GPYRO     ! Face orientation (+3 top, -3 bottom, +1 east, -1 west, +2 north,-2 south)
+
+   INTEGER, POINTER, DIMENSION(:) :: SURF_IDX     !  Index of the boundary condition associed
+
+   LOGICAL, POINTER, DIMENSION(:) :: COMPLETE_CELL_AT_BC  ! TRUE if the boundary cell is a full cell; FALSE if it is a half cell
+
+   TYPE(GPYRO_BC_TYPE), POINTER, DIMENSION(:) :: GPBC     ! Physical properties and variables defined at the boundary cell
+
+
+   !=========================================================================================!
+   ! ========= BELLOW THE PARAMETERS ARE USED  ONLY for GPYRO/FDS coupling ==================!
+   ! -----------------------(or future multi-mesh GPyro coupling) ---------------------------!
+   !=========================================================================================!
+
+   INTEGER, POINTER, DIMENSION(:) :: IOR_FDS       ! Orientation of the corresponding FDS boundary face
+   INTEGER, POINTER, DIMENSION(:) :: IMESH_FDS     ! mapped FDS mesh index:
+                                                   ! 0: not mapped
+                                                   ! >0: mapped to FDS mesh number IMESH_FDS
+                                                   ! <0: mapped to another GPyro mesh (-IMESH_FDS)
+
+   ! --- Index of the corresponding FDS cell ---
+   INTEGER, POINTER, DIMENSION(:) :: I_FDS     ! FDS cell index in X-direction
+   INTEGER, POINTER, DIMENSION(:) :: J_FDS     ! FDS cell index in Y-direction
+   INTEGER, POINTER, DIMENSION(:) :: K_FDS     ! FDS cell index in Z-direction
+
+   INTEGER, POINTER, DIMENSION(:) :: IW_FDS    ! Index of the FDS wall face mapped with this boundary cell
+   INTEGER, POINTER, DIMENSION(:) :: RATIO     ! Fraction = 1 / (number of GPyro cells mapped to the same FDS wall)
+
+   ! --- Absolute coordinates of the GPyro cell face ---
    REAL(EB), POINTER, DIMENSION(:) :: X_GPYRO
    REAL(EB), POINTER, DIMENSION(:) :: Y_GPYRO
+   REAL(EB), POINTER, DIMENSION(:) :: Z_GPYRO
+
+   ! --- Absolute coordinates of the associated FDS wall cell ---
    REAL(EB), POINTER, DIMENSION(:) :: X_FDS
    REAL(EB), POINTER, DIMENSION(:) :: Y_FDS
    REAL(EB), POINTER, DIMENSION(:) :: Z_FDS
-   LOGICAL , POINTER, DIMENSION(:) :: COMPLETE_CELL_AT_BC
-   TYPE(GPYRO_BC_TYPE), POINTER, DIMENSION(:) :: GPBC
+
+   ! --- Distance between GPyro face and FDS wall face ---
+   REAL(EB), POINTER, DIMENSION(:) :: DIFF      ! Total absolute distance
+   REAL(EB), POINTER, DIMENSION(:) :: XDIFF     ! Distance in X-direction
+   REAL(EB), POINTER, DIMENSION(:) :: YDIFF     ! Distance in Y-direction
+   REAL(EB), POINTER, DIMENSION(:) :: ZDIFF     ! Distance in Z-direction
+
 END TYPE
-TYPE (GPYRO_BOUNDARYS_INFORMATION), ALLOCATABLE, DIMENSION (:) :: GP_BOUDARYS
+
+
+TYPE (GPYRO_BOUNDARYS_INFORMATION), ALLOCATABLE, TARGET, DIMENSION (:) :: GP_BOUDARYS
 
 TYPE :: GPYRO_TO_GPYRO_INTERFACE
    INTEGER :: NINTERFACES
@@ -732,7 +775,12 @@ TYPE :: GPYRO_GENERAL_TYPE
    LOGICAL  :: USE_ANISOTROPIC_SOLID_ENTHALPY_SOLVER
    LOGICAL  :: GEOMETRY_IS_UPSIDE_DOWN
    LOGICAL  :: SOLVE_POROSITY
-         
+   LOGICAL  :: IS_DENSITY_DEPENDENT_ON_TEMPERATURE
+
+   INTEGER :: SOLVER_DEFORMATION_MODE  !1 no deformation
+                                       !2 Deformation But Flux computed as the initial non deformed mesh
+                                       !3 Deformation And Heat Flux acount for mesh distortient 
+
    ! Globals 
    REAL(EB) :: TREF
    REAL(EB) :: TDATUM ! temperature datum for enthalpy

@@ -40,9 +40,15 @@ if [ "$FULL_RUN" = true ]; then
 fi
 
 
+LATEX_FILE="validation_report"
+LATEX_CMD="\\def\\Validation{} \\input{${SCRIPT_DIR}/${LATEX_FILE}.tex}"
+
+
+
 
 
 CAS_A="$SCRIPT_DIR/MaCFP_PMMA"
+CAS_B="$SCRIPT_DIR/Smoldering_NASA"
 
 echo ""
 echo ""
@@ -65,7 +71,20 @@ echo "END OF: MaCFP_PMMA-------------------"
 echo "====================================="
 
 
+echo ""
+echo ""
+echo ""
+echo "====================================="
+echo "-----------Smoldering_NASA-----------"
+echo "====================================="
+run_case "$CAS_B" "run.sh"
+echo "END OF: Smoldering_NASA--------------"
+echo "====================================="
 
+
+
+# PDF report generation
+compile_pdf_report "simple"
 
 
 

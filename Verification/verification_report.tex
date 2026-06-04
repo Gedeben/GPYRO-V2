@@ -1,0 +1,167 @@
+\documentclass[12pt]{report}
+\usepackage[a4paper, margin=1in]{geometry} % <-- For better margins
+\usepackage{float}  % <-- For [H] figure placement
+\usepackage[utf8]{inputenc}
+\usepackage{textcomp} % <-- for \textdegree
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{enumitem}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage[font=footnotesize]{subcaption}
+\usepackage{pgfplotstable}
+\usetikzlibrary{decorations.pathmorphing,patterns}
+\usepackage[hidelinks]{hyperref}
+\usepackage{graphicx}  % <- hypertext
+\usepackage[toc,page]{appendix}
+
+
+% Inclusion des chemins générés automatiquement
+\input{path.tex}
+
+\begin{document}
+
+\begin{titlepage}
+\centering
+
+%-------------------------
+% Title
+%-------------------------
+\includegraphics[width=0.4\textwidth]{logo_edf.png}
+
+\rule{\linewidth}{0.2 mm} \\[1 cm]
+{\Huge\bfseries Gpyro Verification and Validation Manual}\\[.7 cm]
+\rule{\linewidth}{0.2 mm} \\[1 cm]
+
+%-------------------------
+% Document information 
+%-------------------------
+\begin{flushleft}
+\normalsize
+Document version: 1.0 \par
+Date: 15 January 2026 \par
+Gpyro version: \texttt{Gpyro V2.0} \par
+Verification launch date: {\today} \par
+\end{flushleft}
+
+\vspace*{1.5cm}
+
+%-------------------------
+% Authors
+%-------------------------
+\begin{center}
+{\Large \bfseries Authors}\\[0.5cm]
+
+{\large
+Youssouf Abdelhafiz$^{a,b,d}$\\
+Daniel Zayat$^{a}$\\
+Abdenour Amokrane$^{a,*}$\\
+Serge Bourbigot$^{b,c}$\\
+Gérald Debenest$^{d}$\\[1cm]
+}
+
+% Affiliations
+\begin{flushleft}
+\footnotesize
+$^{a}$ EDF R\&D Lab Chatou, 6 quai Watier, 78400 Chatou, France \\
+\hspace*{1.2em} \texttt{youssouf.abdelhafiz@edf.fr}, \texttt{abdenour.amokrane@edf.fr} \\[0.2cm]
+
+$^{b}$ Univ. Lille, CNRS, INRAE, Centrale Lille, UMR 8207 – UMET, F-59000 Lille, France \\
+\hspace*{1.2em} \texttt{serge.bourbigot@centralelille.fr} \\[0.2cm]
+
+$^{c}$ Institut Universitaire de France (IUF), Paris, France \\[0.2cm]
+
+$^{d}$ Institut de Mécanique des Fluides de Toulouse (IMFT) – Université de Toulouse, CNRS-INPT-UPS, Toulouse, France \\
+\hspace*{1.2em} \texttt{gerald.debenest@toulouse-inp.fr} \\[0.4cm]
+
+\textit{*Corresponding author}
+\end{flushleft}
+\end{center}
+
+
+\vfill
+
+\end{titlepage}
+
+
+\tableofcontents
+\newpage
+
+% ==============
+% Thermal 1D
+% ==============
+
+\input{Thermal_1D/verification_report_thermal_1D.tex}
+\clearpage
+
+% ==============
+% Thermal 2D/3D
+% ==============
+
+\input{Thermal_2D_3D/verification_report_thermal_2D_3D.tex}
+\clearpage
+
+% ==============
+% Species Conservation
+% ==============
+
+\input{Species_Conservation/verification_report_species_conservation.tex}
+\clearpage
+
+% ==============
+% Gas Transport
+% ==============
+
+\input{Gas_Transport/verification_gas_transport.tex}
+\clearpage
+
+
+% ==============
+% Multiphyiscs
+% ==============
+
+\input{Multiphyiscs/verification_multiphysics.tex}
+\clearpage
+
+% ==============
+% Numerical Performance
+% ==============
+
+\input{Numerical_Performance/verification_numerical_performance.tex}
+\clearpage
+
+
+% ==============
+% Validation
+% ==============
+
+\input{Validation/validation_report.tex}
+
+
+
+
+
+\clearpage
+\begin{appendices}
+\markboth{Appendices}{Appendices}
+\renewcommand{\thesection}{\Alph{section}}
+\input{annexes.tex}
+\end{appendices}
+
+\clearpage
+\setcounter{section}{0}
+\renewcommand{\thesection}{\arabic{section}}
+
+\phantomsection
+\addcontentsline{toc}{section}{References}
+\bibliographystyle{unsrt}
+\bibliography{master}
+
+
+\end{document}
+
+
+
+
+

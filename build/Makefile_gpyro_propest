@@ -45,11 +45,10 @@ GITINFOPGI=-Mpreprocess $(GITINFO_BASE) -DBUILDDATE_PP=\""$(BUILD_DATE)\""
 
 # Definition of object variables
 
-obj_mpi = gpyro_prec.o propest_vars.o sce_vars.o gpyro_vars.o gpyro_funcs.o gpyro_bc.o gpyro_io.o gpyro_pyro.o gpyro_init.o propest_mpi.o \
-          gpyro_gas.o gpyro_mass.o gpyro_thermal.o sce_funcs.o propest_subs.o propest_io.o sce_io.o sce_objfunc.o sce_ua.o sce_init.o propest_main.o 
+obj_mpi = gpyro_prec.o propest_vars.o sce_vars.o gpyro_check.o gpyro_vars.o gpyro_funcs.o gpyro_bc.o gpyro_io.o gpyro_pyro.o gpyro_init.o propest_mpi.o \
+          gpyro_gas.o gpyro_mesh.o gpyro_mass.o gpyro_thermal.o sce_funcs.o propest_subs.o propest_io.o sce_io.o sce_objfunc.o sce_ua.o sce_init.o propest_main.o 
 
-objwin_mpi = mpi.obj gpyro_prec.obj propest_vars.obj sce_vars.obj gpyro_vars.obj gpyro_funcs.obj gpyro_bc.obj gpyro_io.obj gpyro_pyro.obj gpyro_init.obj propest_mpi.obj \
-          gpyro_gas.obj gpyro_mass.obj gpyro_thermal.obj sce_funcs.obj propest_subs.obj propest_io.obj sce_io.obj sce_objfunc.obj sce_ua.obj sce_init.obj propest_main.obj 
+objwin_mpi = mpi.obj $(obj_mpi:.o=.obj)
 
 #*** General Purpose Rules ***
 no_target:
@@ -132,18 +131,20 @@ gpyro_prec.o :
 gpyro_vars.o : 	gpyro_prec.o
 gpyro_funcs.o : gpyro_prec.o gpyro_vars.o
 gpyro_io.o : gpyro_prec.o gpyro_vars.o gpyro_funcs.o
+gpyro_check.o : gpyro_prec.o gpyro_vars.o gpyro_io.o
 gpyro_bc.o : gpyro_prec.o gpyro_vars.o gpyro_funcs.o
 gpyro_thermal.o : gpyro_prec.o gpyro_vars.o gpyro_funcs.o gpyro_bc.o
 gpyro_gas.o : gpyro_prec.o gpyro_vars.o gpyro_funcs.o gpyro_bc.o
-gpyro_mass.o : gpyro_prec.o gpyro_vars.o gpyro_funcs.o gpyro_io.o
-gpyro_init.o : gpyro_prec.o gpyro_vars.o gpyro_funcs.o gpyro_io.o gpyro_mass.o
+gpyro_mesh.o : gpyro_prec.o gpyro_vars.o gpyro_funcs.o gpyro_io.o
+gpyro_mass.o : gpyro_prec.o gpyro_vars.o gpyro_funcs.o gpyro_io.o gpyro_mesh.o
+gpyro_init.o : gpyro_prec.o gpyro_vars.o gpyro_funcs.o gpyro_io.o gpyro_mass.o gpyro_mesh.o
 gpyro_pyro.o : gpyro_prec.o gpyro_vars.o gpyro_funcs.o gpyro_io.o gpyro_mass.o gpyro_thermal.o gpyro_gas.o
 
 propest_vars.o : gpyro_prec.o
 propest_mpi.o : gpyro_prec.o gpyro_vars.o propest_vars.o
 propest_subs.o : gpyro_prec.o propest_vars.o gpyro_vars.o gpyro_init.o gpyro_funcs.o gpyro_io.o gpyro_pyro.o
 propest_io.o : gpyro_prec.o gpyro_vars.o gpyro_funcs.o propest_vars.o propest_subs.o
-propest_main.o : gpyro_prec.o gpyro_vars.o gpyro_funcs.o propest_vars.o propest_subs.o gpyro_init.o gpyro_io.o sce_funcs.o propest_io.o
+propest_main.o : gpyro_prec.o gpyro_vars.o gpyro_funcs.o propest_vars.o propest_subs.o gpyro_init.o gpyro_io.o sce_funcs.o propest_io.o gpyro_check.o
 
 sce_vars.o : gpyro_prec.o
 sce_funcs.o : gpyro_prec.o sce_vars.o
@@ -157,11 +158,13 @@ gpyro_prec.obj :
 gpyro_vars.obj : gpyro_prec.obj
 gpyro_funcs.obj : gpyro_prec.obj gpyro_vars.obj
 gpyro_io.obj : gpyro_prec.obj gpyro_vars.obj gpyro_funcs.obj
+gpyro_check.obj : gpyro_prec.obj gpyro_vars.obj gpyro_io.obj
 gpyro_bc.obj : gpyro_prec.obj gpyro_vars.obj gpyro_funcs.obj
 gpyro_thermal.obj : gpyro_prec.obj gpyro_vars.obj gpyro_funcs.obj gpyro_bc.obj
 gpyro_gas.obj : gpyro_prec.obj gpyro_vars.obj gpyro_funcs.obj gpyro_bc.obj
-gpyro_mass.obj : gpyro_prec.obj gpyro_vars.obj gpyro_funcs.obj gpyro_io.obj
-gpyro_init.obj : gpyro_prec.obj gpyro_vars.obj gpyro_funcs.obj gpyro_io.obj gpyro_mass.obj
+gpyro_mesh.obj : gpyro_prec.obj gpyro_vars.obj gpyro_funcs.obj gpyro_io.obj
+gpyro_mass.obj : gpyro_prec.obj gpyro_vars.obj gpyro_funcs.obj gpyro_io.obj gpyro_mesh.obj
+gpyro_init.obj : gpyro_prec.obj gpyro_vars.obj gpyro_funcs.obj gpyro_io.obj gpyro_mass.obj gpyro_mesh.obj
 gpyro_pyro.obj : gpyro_prec.obj gpyro_vars.obj gpyro_funcs.obj gpyro_io.obj gpyro_mass.obj gpyro_thermal.obj gpyro_gas.obj
 gpyro_main.obj : gpyro_init.obj gpyro_vars.obj gpyro_funcs.obj gpyro_io.obj gpyro_pyro.obj gpyro_prec.obj
 
@@ -169,7 +172,7 @@ propest_vars.obj : gpyro_prec.obj
 propest_mpi.obj : gpyro_prec.obj gpyro_vars.obj propest_vars.obj
 propest_subs.obj : gpyro_prec.obj propest_vars.obj gpyro_vars.obj gpyro_init.obj gpyro_funcs.obj gpyro_io.obj gpyro_pyro.obj
 propest_io.obj : gpyro_prec.obj gpyro_vars.obj gpyro_funcs.obj propest_vars.obj propest_subs.obj
-propest_main.obj : gpyro_prec.obj gpyro_vars.obj gpyro_funcs.obj propest_vars.obj propest_subs.obj gpyro_init.obj gpyro_io.obj sce_funcs.obj
+propest_main.obj : gpyro_prec.obj gpyro_vars.obj gpyro_funcs.obj propest_vars.obj propest_subs.obj gpyro_init.obj gpyro_io.obj sce_funcs.obj gpyro_check.obj
 
 sce_vars.obj : gpyro_prec.o
 sce_funcs.obj : gpyro_prec.obj sce_vars.obj

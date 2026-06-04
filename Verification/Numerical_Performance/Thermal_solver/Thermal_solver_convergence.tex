@@ -1,0 +1,108 @@
+\ifdefined\standalone
+\documentclass[12pt]{article}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[a4paper, margin=1in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{textcomp}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{enumitem}
+\usetikzlibrary{decorations.pathmorphing,patterns}
+\usepackage[hidelinks]{hyperref}
+
+\begin{document}
+\fi
+
+
+\section{Convergence Of The Thermal Solver}
+
+This verification case evaluates the temporal and spatial convergence of the one-dimensional thermal solver.  
+The configuration corresponds to the case presented in Section~\ref{case:rad_1d}.  
+A slab of thickness \(4~\mathrm{cm}\) is considered, with a prescribed heat flux applied at the upper boundary.  
+
+
+\subsection*{Temporal convergence}
+
+The temporal convergence is examined by varying the time step from \(0.01~\mathrm{s}\) to \(100~\mathrm{s}\), while maintaining a uniform spatial discretization of \(0.1~\mathrm{mm}\).  
+Although the implicit formulation ensures stability for all tested time steps, significant deviations from the analytical solution are expected when coarse temporal resolutions are used.
+
+The temperature at a depth of \(8~\mathrm{mm}\) is monitored over time.  
+Figure~\ref{fig:Temperature_Temporal_convergence} presents the computed temperature histories, and Figure~\ref{fig:L2_error_Temporal_thermal_solver} shows the associated \(L^2\) error (Eq. \ref{eq:L2norm}) relative to the analytical solution. A linear slope equal to 1 is obtained in the log–log error plot, which is expected since the thermal solver is first order accurate in time.
+
+\begin{figure}[H]
+\centering
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{Temporal/Temperature_Temporal_convergence.png}
+    \caption{Temperature at 8 mm depth for various time steps.}
+    \label{fig:Temperature_Temporal_convergence}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{Temporal/L2_error_Temporal_thermal_solver.png}
+    \caption{\(L^2\) temporal error as a function of time step.}
+    \label{fig:L2_error_Temporal_thermal_solver}
+\end{minipage}
+\end{figure}
+
+
+\subsection*{Spatial convergence}
+
+The spatial convergence is evaluated by varying the grid spacing from \(10~\mathrm{mm}\) (five cells through the slab) down to \(0.001~\mathrm{mm}\).  
+All simulations are run using a fixed time step of \(0.01~\mathrm{s}\).  
+Unconditional stability is preserved regardless of the grid refinement, although coarse meshes are expected to deviate from the analytical solution.
+
+The temperature at \(8~\mathrm{mm}\) depth is again used to compute the \(L^2\) error. Figure~\ref{fig:Temperature_Spatial_convergence} presents the computed temperature histories. Figure~\ref{fig:L2_error_Spatial_thermal_solver} presents the spatial error as a function of grid spacing. A linear slope equal to 2 is obtained in the log–log error plot, which is expected since the thermal solver is second order accurate in space.
+
+\begin{figure}[H]
+\centering
+\begin{minipage}{0.47\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{Spatial/Temperature_Spatial_convergence.png}
+    \caption{Temperature at 8 mm depth for various time steps.}
+    \label{fig:Temperature_Spatial_convergence}
+\end{minipage}
+\hfill
+\begin{minipage}{0.47\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{Spatial/L2_error_Spatial_thermal_solver.png}
+    \caption{\(L^2\) spatial error as a function of grid spacing.}
+    \label{fig:L2_error_Spatial_thermal_solver}
+\end{minipage}
+\end{figure}
+
+
+\subsection*{Computational cost}
+
+The computational cost of the simulations is reported in Figures~\ref{fig:CPU_Time_Temporal_thermal_solver} and \ref{fig:CPU_Time_Spatial_thermal_solver}.  
+A proportional increase in CPU time is expected as the spatial or temporal resolution is refined.  
+For coarse discretizations, however, initialization and overhead operations may dominate the total runtime, and meaningful scaling behaviour is observed only once the discretization becomes sufficiently fine.
+
+\begin{figure}[H]
+\centering
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{Temporal/CPU_Time_Temporal_thermal_solver.png}
+    \caption{CPU time for temporal convergence simulations.}
+    \label{fig:CPU_Time_Temporal_thermal_solver}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{Spatial/CPU_Time_Spatial_thermal_solver.png}
+    \caption{CPU time for spatial convergence simulations.}
+    \label{fig:CPU_Time_Spatial_thermal_solver}
+\end{minipage}
+\end{figure}
+
+
+
+
+\ifdefined\standalone
+\end{document}
+\fi
+
+

@@ -33,6 +33,8 @@ This repository is a fork of the original [Gpyro](https://github.com/lautenberge
 ### Debugging and Physics
 - Fixed **pore radiation** model contribution.  
 - New implementation of in-depth radiation in 3D.  
+- Implementation of deformation in 3D.  
+- Reactive Blowing Boundary Condition.  
 - Stabilization of species conservation in near-extinction conditions.  
 - Fixed inverse modeling tool for ATG analysis.  
 
@@ -58,11 +60,6 @@ This repository is a fork of the original [Gpyro](https://github.com/lautenberge
 - `/build` → build instructions and precompiled binaries.  
 - `/Verification` → automated verification procedures and benchmark cases.  
 
----
-
-## Current Limitations
-- Gas-phase solvers (pressure, diffusion, energy) are not fully functional.  
-- Coupling with **FDS** is under finalization and will be released soon.  
 
 ---
 

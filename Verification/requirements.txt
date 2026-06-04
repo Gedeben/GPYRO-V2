@@ -1,0 +1,7 @@
+fpdf
+matplotlib
+mpmath
+numpy
+pandas
+pillow
+scipy

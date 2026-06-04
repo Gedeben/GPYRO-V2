@@ -1,0 +1,63 @@
+	\ifdefined\standalone
+\documentclass[12pt]{article}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[a4paper, margin=1in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{textcomp}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{enumitem}
+\usetikzlibrary{decorations.pathmorphing,patterns}
+\usepackage[hidelinks]{hyperref}
+\begin{document}
+\fi
+
+\section{Reaction Enthalpy}
+
+This case is designed to verify the implementation of reaction enthalpy in the code. The volumetric chemical heat source term, denoted $\dot{Q}^{'''}_{sc}$ is expressed as
+\begin{equation}
+\dot{Q}^{'''}_{sc} = - \sum_{k}^{K} \dot{\omega}^{'''}_{r,k} \, \Delta H_{r,k}
++ \sum_{i}^{M} \dot{\omega}^{'''}_{net,i} \, h_i 
+\label{eq:chimical source term}
+\end{equation}
+where $K$ is the number of reactions, $\dot{\omega}^{'''}_{r,k}$ is the reaction rate of reaction $k$, $\Delta H_{r,k}$ is the reaction enthalpy, $\dot{\omega}^{'''}_{net,i}$ is the net production rate of condensed species $i$, and $h_i$ is the specific sensible enthalpy of species $i$.
+
+A one-dimensional simulation is performed, consisting of a single condensed material, denoted material A. This material undergoes a single reaction transforming it into material B without producing gaseous species. The reaction is first order, with an activation energy of $E = 150$~kJ\,mol$^{-1}$ and a pre-exponential factor of $5 \times 10^{13}$~s$^{-1}$. Two sub-cases are considered. The first corresponds to an endothermic reaction with $\Delta H_k = 1 \times 10^{6}$~J\,kg$^{-1}$, while the second corresponds to an exothermic reaction with $\Delta H_k = -1 \times 10^{5}$~J\,kg$^{-1}$. A third case is also investigated, in which the reaction is slightly modified to produce gaseous species. In this configuration, $60\%$ of the mass of material A is converted into gases, and the reaction enthalpy is set to $\Delta H_k = 0$. As a result, the first term in Eq.~\ref{eq:chimical source term} vanishes, and only the second term, corresponding to the variation of sensible enthalpy of the condensed phase, contributes to the heat source term.
+
+The numerical Chemical source term and their comparison with analytical solutions are presented in Figure~\ref{fig:endo_results} for the endothermic case, Figure~\ref{fig:exo_results} for the exothermic case, and Figure~\ref{fig:sensible_results} for the sensible enthalpy variation case. The analytical solutions are computed directly from Eq.~\ref{eq:chimical source term}, using reaction rates extracted from the numerical solution.
+
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.49\textwidth}
+\centering
+	\includegraphics[width=\linewidth]{endothermic_reaction/Reaction_Enthalpy_Endo.png}
+    \caption{Endothermic reaction case.}
+\label{fig:endo_results}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.49\textwidth}
+\centering
+    \includegraphics[width=\linewidth]{exothermic_reaction/Reaction_Enthalpy_Exo.png}
+    \caption{Exothermic reaction case.}
+\label{fig:exo_results}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.49\textwidth}
+\centering
+    \includegraphics[width=\linewidth]{sensible_enthalpy/Reaction_Enthalpy_sensible.png}
+    \caption{Sensible enthalpy case.}
+\label{fig:sensible_results}
+\end{minipage}
+\end{figure}
+
+
+\ifdefined\standalone
+\end{document}
+\fi
+
+
+
+

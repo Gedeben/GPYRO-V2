@@ -1,0 +1,64 @@
+\ifdefined\standalone 
+\documentclass[12pt]{article}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[a4paper, margin=1in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{textcomp}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{enumitem}
+\usetikzlibrary{decorations.pathmorphing,patterns}
+\usepackage[hidelinks]{hyperref} % <- hypertext
+
+\begin{document}
+\fi
+\section{Oxidation}
+\label{sec:oxidation}
+
+This verification case assesses the ability of \textsc{Gpyro} to accurately simulate oxidative reactions. A zero-dimensional simulation is performed on a $m_{A,0}=5~\mathrm{mg}$ sample composed of a single condensed-phase material~A undergoing a one-step oxidation reaction. The material is initially at $T_0 = 20^\circ\mathrm{C}$ and is heated with a constant temperature ramp of $\beta = 5~\mathrm{K\,min^{-1}}$. The reaction is written as:
+\begin{equation}
+\mathrm{A} + \theta_{O_2}\,\mathrm{O_2}
+\;\longrightarrow\;
+\theta\,\mathrm{Char} + \left(1 - \theta + \theta_{O_2}\right)\,\mathrm{G},
+\end{equation}
+where $\theta=0.8$ denotes the char yield and $\theta_{O_2}=0.2$ the oxygen stoichiometric coefficient.
+
+The reaction is assumed to be first order and is characterized by a pre-exponential factor
+$Z = 7 \times 10^{6}~\mathrm{s^{-1}}$ and an activation energy
+$E = 190~\mathrm{kJ\,mol^{-1}}$. The influence of oxygen concentration is investigated by performing simulations with different initial oxygen mass fractions,
+$Y_{O_2} = 0$, $4.3$, $8.2$, and $20.5~\%$.
+
+An analytical solution for this configuration is derived following the same methodology as presented in Appendix~\ref{ann:analytical_TGA}. The resulting mass loss rate (MLR) is directly proportional to the oxygen mass fraction and is given by
+\begin{equation}
+\mathrm{MLR}(t) =
+Y_{O_2}\,(1-\theta)\,
+m_{A,0}\,
+Z \exp\!\left(\frac{-E}{R\,(T_0 + \beta t)}\right)
+\exp\!\left[
+- \int_{t_0}^{t}
+Z \exp\!\left(\frac{-E}{R\,(T_0 + \beta t')}\right)\, \mathrm{d}t'
+\right]
+\end{equation}
+
+The numerical results obtained with \textsc{Gpyro} are compared with the analytical solution in Figure~\ref{fig:oxydation}.
+
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{Oxydation_MLR.png}
+\caption{Comparison between Gpyro and analytical mass loss rates (MLR).}
+\label{fig:oxydation}
+\end{figure}
+
+
+\ifdefined\standalone
+\end{document}
+\fi
+
+
+
+
+
+

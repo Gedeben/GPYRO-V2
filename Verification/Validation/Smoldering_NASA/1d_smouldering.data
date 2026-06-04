@@ -1,0 +1,130 @@
+//
+&GPYRO_GENERAL 
+DT0 = 0.2,
+TAMB = 300, TREF = 300, P0 = 101300, GZ = 0,
+THERMAL_EQUILIBRIUM = .TRUE.,
+VHLC = 25,
+NTDMA_ITERATIONS = 1000,
+SOLVE_GAS_YJ    = .TRUE.  , YJTOL = 0.01,
+SOLVE_PRESSURE  = .TRUE.  , PTOL  = 0.01,
+SOLVE_GAS_ENERGY= .FALSE.,
+EPS = 0.01,
+/ 
+
+&GPYRO_OUTPUT 
+CASENAME = '1d_smouldering',
+N_POINT_QUANTITIES = 16, N_PROFILE_QUANTITIES = 11, N_SMOKEVIEW_QUANTITIES = 0,
+DTDUMP_POINT = 0.1, DTDUMP_PROFILE = 1,
+
+POINT_QUANTITY(1) = 'MLR', POINT_QUANTITY_INDEX(1) = 0,
+POINT_QUANTITY(2) = 'MLR', POINT_QUANTITY_INDEX(2) = 1,
+POINT_QUANTITY(3) = 'MLR', POINT_QUANTITY_INDEX(3) = 2,
+POINT_QUANTITY(4) = 'MLR', POINT_QUANTITY_INDEX(4) = 3,
+POINT_QUANTITY(5) = 'MLR', POINT_QUANTITY_INDEX(5) = 4,
+POINT_QUANTITY(6) = 'MLR', POINT_QUANTITY_INDEX(6) = 5,
+POINT_QUANTITY(7) = 'THICKNESS',
+POINT_QUANTITY(8) = 'N_ITERATIONS', 
+POINT_QUANTITY(9)  = 'TEMPERATURE', POINT_Z(9)  = 0.005, 
+POINT_QUANTITY(10) = 'TEMPERATURE', POINT_Z(10) = 0.025, 
+POINT_QUANTITY(11) = 'TEMPERATURE', POINT_Z(11) = 0.045, 
+POINT_QUANTITY(12) = 'TEMPERATURE', POINT_Z(12) = 0.065, 
+POINT_QUANTITY(13) = 'TEMPERATURE', POINT_Z(13) = 0.085, 
+POINT_QUANTITY(14) = 'TEMPERATURE', POINT_Z(14) = 0.105, 
+POINT_QUANTITY(15) = 'TEMPERATURE', POINT_Z(15) = 0.125, 
+POINT_QUANTITY(16) = 'TEMPERATURE', POINT_Z(16) = 0.140, 
+
+PROFILE_QUANTITY(1) = 'TEMPERATURE',
+PROFILE_QUANTITY(2) = 'YI',  PROFILE_QUANTITY_INDEX(2)=1
+PROFILE_QUANTITY(3) = 'YI',  PROFILE_QUANTITY_INDEX(3)=2
+PROFILE_QUANTITY(4) = 'YI',  PROFILE_QUANTITY_INDEX(4)=3
+PROFILE_QUANTITY(5) = 'YI',  PROFILE_QUANTITY_INDEX(5)=4
+PROFILE_QUANTITY(6) = 'YI',  PROFILE_QUANTITY_INDEX(6)=5
+
+PROFILE_QUANTITY(7)  = 'YJ',  PROFILE_QUANTITY_INDEX(7) =1
+PROFILE_QUANTITY(8)  = 'YJ',  PROFILE_QUANTITY_INDEX(8) =2
+PROFILE_QUANTITY(9)  = 'YJ',  PROFILE_QUANTITY_INDEX(9) =3
+PROFILE_QUANTITY(10) = 'YJ',  PROFILE_QUANTITY_INDEX(10)=4
+PROFILE_QUANTITY(11) = 'YJ',  PROFILE_QUANTITY_INDEX(11)=5
+
+
+/ 
+ 
+&GPYRO_SPROPS NSSPEC = 5, 
+NAME(1) = 'foam'        , K0Z(1) = 0.05, NKZ(1) = 1.6, GAMMA(1) = 0.001, R0(1) = 26.5, RS0(1) = 900, C0(1) = 1760, NC(1) = 0.7, EMIS(1) = 1, KAPPA(1) = 1D7, PERMZ(1) = 5.2D-9,
+NAME(2) = 'beta_foam'   , K0Z(2) = 0.05, NKZ(2) = 1.6, GAMMA(2) = 0.001, R0(2) = 18  , RS0(2) = 900, C0(2) = 1760, NC(2) = 0.7, EMIS(2) = 1, KAPPA(2) = 1D7, PERMZ(2) = 1D-8, 
+NAME(3) = 'thermal_char', K0Z(3) = 0.05, NKZ(3) = 1.6, GAMMA(3) = 0.001, R0(3) = 1.1 , RS0(3) = 900, C0(3) = 1760, NC(3) = 0.7, EMIS(3) = 1, KAPPA(3) = 1D7, PERMZ(3) = 3D-8, 
+NAME(4) = 'char'        , K0Z(4) = 0.05, NKZ(4) = 1.6, GAMMA(4) = 0.001, R0(4) = 10  , RS0(4) = 900, C0(4) = 1760, NC(4) = 0.7, EMIS(4) = 1, KAPPA(4) = 1D7, PERMZ(4) = 3D-8, 
+NAME(5) = 'alpha_char'  , K0Z(5) = 0.05, NKZ(5) = 1.6, GAMMA(5) = 0.001, R0(5) = 2.4 , RS0(5) = 900, C0(5) = 1760, NC(5) = 0.7, EMIS(5) = 1, KAPPA(5) = 1D7, PERMZ(5) = 3D-8, 
+/ 
+
+&GPYRO_GPROPS NGSPEC = 5, 
+IBG = 1, IO2 = 2, CPG = 1100, 
+NAME(1) = 'thermal_pyrolysate'  , M(1) = 44 , SIGMA(1) = 3.996 , EPSOK(1) = 190 ,
+NAME(2) = 'oxygen'              , M(2) = 32 , SIGMA(2) = 3.434 , EPSOK(2) = 113 ,
+NAME(3) = 'nitrogen'            , M(3) = 28 , SIGMA(3) = 3.667 , EPSOK(3) = 99.8,
+NAME(4) = 'oxidative_pyrolysate', M(4) = 44 , SIGMA(4) = 3.996 , EPSOK(4) = 190 ,
+NAME(5) = 'product'             , M(5) = 44 , SIGMA(5) = 3.996 , EPSOK(5) = 190 ,
+/
+
+&GPYRO_RXNS NRXNS = 7, 
+!          Reactant             Product             Pre-exp factor   Act Energy    reaction order          reaction enthalpy      deformation      oxidation order !
+CFROM(1) = 'foam'        , CTO(1) = 'beta_foam'   , Z(1) = 3.16E+18, E(1) = 227  , ORDER(1) = 0.8 , DHS(1) = 4.0E+4 , DHV(1) = 4.0E+4 , CHI(1) = 1, ORDERO2(1) = 0,
+CFROM(2) = 'beta_foam'   , CTO(2) = 'thermal_char', Z(2) = 1.29E+10, E(2) = 146.5, ORDER(2) = 1.25, DHS(2) = 7.5E+5 , DHV(2) = 7.5E+5 , CHI(2) = 1, ORDERO2(2) = 0,
+CFROM(3) = 'thermal_char', CTO(3) = 'gases'       , Z(3) = 8.24E+8 , E(3) = 173.3, ORDER(3) = 0.92, DHS(3) = -2.5E+6, DHV(3) = -2.5E+6, CHI(3) = 1, ORDERO2(3) = 0,
+CFROM(4) = 'foam'        , CTO(4) = 'char'        , Z(4) = 1.37E+15, E(4) = 188  , ORDER(4) = 0.48, DHS(4) = -1.5E+6, DHV(4) = -1.5E+6, CHI(4) = 1, ORDERO2(4) = 1,
+CFROM(5) = 'beta_foam'   , CTO(5) = 'char'        , Z(5) = 1E+16   , E(5) = 200  , ORDER(5) = 0.52, DHS(5) = -1.6E+6, DHV(5) = -1.6E+6, CHI(5) = 1, ORDERO2(5) = 1, 
+CFROM(6) = 'char'        , CTO(6) = 'alpha_char'  , Z(6) = 1E+15   , E(6) = 201  , ORDER(6) = 1.3 , DHS(6) = -2.5E+6, DHV(6) = -2.5E+6, CHI(6) = 1, ORDERO2(6) = 1, 
+CFROM(7) = 'alpha_char'  , CTO(7) = 'gases'       , Z(7) = 4.25E+8 , E(7) = 153  , ORDER(7) = 1.61, DHS(7) = -2.5E+6, DHV(7) = -2.5E+6, CHI(7) = 1, ORDERO2(7) = 1, 
+/
+
+
+&GPYRO_GYIELDS
+!thermal_pyrolysate     oxygen            nitrogen      oxidative_pyrolysate       product !
+GYIELDS(1,1) = 1, GYIELDS(2,1) = 0   , GYIELDS(3,1) = 0, GYIELDS(4,1) = 0  , GYIELDS(5,1) = 0   ! foam         -> beta_foam  
+GYIELDS(1,2) = 1, GYIELDS(2,2) = 0   , GYIELDS(3,2) = 0, GYIELDS(4,2) = 0  , GYIELDS(5,2) = 0   ! beta_foam    -> thermal_char
+GYIELDS(1,3) = 1, GYIELDS(2,3) = 0   , GYIELDS(3,3) = 0, GYIELDS(4,3) = 0  , GYIELDS(5,3) = 0   ! thermal_char -> gases
+GYIELDS(1,4) = 0, GYIELDS(2,4) = -0.3, GYIELDS(3,4) = 0, GYIELDS(4,4) = 1.3, GYIELDS(5,4) = 0   ! foam         -> char  
+GYIELDS(1,5) = 0, GYIELDS(2,5) = -0.4, GYIELDS(3,5) = 0, GYIELDS(4,5) = 1.4, GYIELDS(5,5) = 0   ! beta_foam    -> char
+GYIELDS(1,6) = 0, GYIELDS(2,6) = -1.5, GYIELDS(3,6) = 0, GYIELDS(4,6) = 2.5, GYIELDS(5,6) = 0   ! char         -> alpha_char
+GYIELDS(1,7) = 0, GYIELDS(2,7) = -1.5, GYIELDS(3,7) = 0, GYIELDS(4,7) = 0  , GYIELDS(5,7) = 2.5 ! alpha_char   -> gases
+/
+
+&GPYRO_HGRXNS NHGRXNS = 0, /
+&GPYRO_HGYIELDS /
+
+&GPYRO_CASES NCASES = 1, 
+IMESH(1) = 1, TSTOP(1) = 1200, 
+/
+ 
+&GPYRO_IC NIC = 1, 
+! Initial temperature |   Initial Pressure   | Material composition |    Gas initial concentration  |
+TMP_INITIAL(1) = 300  , P_INITIAL(1) = 101300,      YI0(1,1) = 1   , YJ0(1,2) = 0.23, YJ0(1,3) = 0.77, 
+/
+
+&GPYRO_ALLBC 
+NSURF_IDX = 9 
+
+! BC Groupe=1  |                Thermal Boundary condition            |      Gas Mass Flux BC      |  Gas Diffusion BC :     Oxygen         nitrogen      |       
+SURF_IDX(1) = 1, QE(1)=0, HC(1)=10, TINF(1)=300, RERADIATION(1)=.TRUE., MDOTPP(1)=0, PRES(1)=101300, HM(1)=0.00, YJINF(1,2) = 0.23, YJINF(1,3) = 0.77,
+
+! BC Groupe=2  |    Time    | Fixed temperature |         Gas Mass Flux BC      |  Impermeable to gas species diffusion  (HM=0)   |
+SURF_IDX(2) = 2, T(2) = 0   , TFIXED(2) = 300   , MDOTPP(2) = 0.1, PRES(2) = -1, HM(2) = 0, YJINF(2,2) = 0.23, YJINF(2,3) = 0.77,
+SURF_IDX(3) = 2, T(3) = 400 , TFIXED(3) = 673   , MDOTPP(3) = 0.1, PRES(3) = -1, HM(3) = 0, YJINF(3,2) = 0.23, YJINF(3,3) = 0.77,
+SURF_IDX(4) = 2, T(4) = 410 , TFIXED(4) = 685.5 , MDOTPP(4) = 5.8, PRES(4) = -1, HM(4) = 0, YJINF(4,2) = 0.23, YJINF(4,3) = 0.77,
+SURF_IDX(5) = 2, T(5) = 440 , TFIXED(5) = 723   , MDOTPP(5) = 5.8, PRES(5) = -1, HM(5) = 0, YJINF(5,2) = 0.23, YJINF(5,3) = 0.77,
+SURF_IDX(6) = 2, T(6) = 632 , TFIXED(6) = 783   , MDOTPP(6) = 5.8, PRES(6) = -1, HM(6) = 0, YJINF(6,2) = 0.23, YJINF(6,3) = 0.77,
+SURF_IDX(7) = 2, T(7) = 780 , TFIXED(7) = 641   , MDOTPP(7) = 5.8, PRES(7) = -1, HM(7) = 0, YJINF(7,2) = 0.23, YJINF(7,3) = 0.77,
+SURF_IDX(8) = 2, T(8) = 1000, TFIXED(8) = 533   , MDOTPP(8) = 5.8, PRES(8) = -1, HM(8) = 0, YJINF(8,2) = 0.23, YJINF(8,3) = 0.77,
+SURF_IDX(9) = 2, T(9) = 1400, TFIXED(9) = 435   , MDOTPP(9) = 5.8, PRES(9) = -1, HM(9) = 0, YJINF(9,2) = 0.23, YJINF(9,3) = 0.77,
+/
+
+&GPYRO_GEOM NMESH = 1, 
+ZDIM(1) = 0.14, NCELLZ(1) = 561
+ 
+!         Top BC         |          Bottom BC       | Initial conditions
+DEFAULT_SURF_IDX(1,5) = 1, DEFAULT_SURF_IDX(1,6) = 2, DEFAULT_IC(1) = 1, 
+/
+
+
+
+

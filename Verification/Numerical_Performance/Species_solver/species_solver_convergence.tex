@@ -1,0 +1,62 @@
+\ifdefined\standalone
+\documentclass[12pt]{article}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[a4paper, margin=1in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{textcomp}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{enumitem}
+\usetikzlibrary{decorations.pathmorphing,patterns}
+\usepackage[hidelinks]{hyperref}
+
+\begin{document}
+\fi
+
+
+\section{Convergence Of The Species Solver}
+
+This verification case evaluates the temporal convergence of the species conservation solver and determines its temporal order of accuracy.  
+Only a temporal study is required because the species conservation equation contains no spatial derivative term and reduces to a local balance.
+
+
+The configuration corresponds to the simple TGA verification case (see Section~\ref{sec:simple_tga}).  
+Several simulations were performed with time steps ranging from \(100\,\mathrm{s}\) down to \(10^{-2}\,\mathrm{s}\).
+For large time steps (e.g. \(100\,\mathrm{s}\)), the species correction step of the solver is expected to be activated to ensure that the overall species destruction balance remains consistent within each computational cell.    
+
+The evolution of the mass loss rate (MLR) obtained with the different time steps is shown in Figure~\ref{fig:MLR_convergence}.  
+The numerical error is quantified using the \(L^2\) norm:
+\begin{equation}
+L^2 = \sqrt{\frac{1}{N}\sum_{i=1}^{N}\left(\phi_i^{\mathrm{num}} - \phi_i^{\mathrm{ref}}\right)^2}
+\label{eq:L2norm}
+\end{equation}
+where \(\phi_i^{\mathrm{num}}\) and \(\phi_i^{\mathrm{ref}}\) denote the numerical and reference solutions at time index \(i\), and \(N\) is the total number of compared points.  
+The reference solution corresponds to the simulation performed with a time step of \(10^{-3}\,\mathrm{s}\).  
+The resulting \(L^2\) error as a function of the time step is presented in Figure~\ref{fig:L2_error_species_solver}. A linear slope equal to 1 is obtained in the log–log error plot, which is expected since the species solver is first order accurate in time. 
+
+
+\begin{figure}[H]
+\centering
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{MLR_convergence.png}
+    \caption{Mass Loss Rate (MLR) obtained for several time steps.}
+    \label{fig:MLR_convergence}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{L2_error_species_solver.png}
+    \caption{\(L^2\) error of the species solver as a function of the time step.}
+    \label{fig:L2_error_species_solver}
+\end{minipage}
+\end{figure}
+
+
+\ifdefined\standalone
+\end{document}
+\fi
+
+

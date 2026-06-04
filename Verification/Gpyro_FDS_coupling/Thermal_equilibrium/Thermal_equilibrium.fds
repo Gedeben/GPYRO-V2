@@ -1,0 +1,60 @@
+&HEAD CHID='thermal_equilibrium', TITLE='Gpyro_FDS_Thermal_equilibrium' /
+
+&MESH IJK=10,10,10, XB=0.0,1.0,0.0,1.0,0.0,1.0 /
+
+&TIME T_END=500, DT=0.5 /
+
+&SPEC ID='GAS', MW=28, SPECIFIC_HEAT=1, BACKGROUND=.TRUE. /
+
+&RADI RADIATION=.FALSE. /
+
+&MISC  SOLID_PHASE_ONLY=.FALSE.
+      NUM_GPYRO_MESHES = 1,
+      GPYRO_MESH_CENTROIDS(1,:) =0.50, 0.50, 0.50,
+      GPYRO_MESH_EXTENTS( 1,:) = 0.2, 0.2, 0.2,
+      PROCESS_GPYRO(1) =  1 / 
+
+
+
+&SURF   ID		='WALL',
+	COLOR		='GRAY',
+	ADIABATIC 	= .TRUE.,
+	DEFAULT		= .TRUE. /
+
+
+&SURF ID                        = 'GPYRO' 
+      COLOR                     = 'BLACK'
+      GPYRO                     = .TRUE.
+      DEFAULT                   = .FALSE.
+      SPEC_ID(1:1)		= 'GAS'
+      HEAT_TRANSFER_COEFFICIENT = 20, /
+
+
+&OBST XB= 0.4,0.6,0.4,0.6,0.4,0.6, SURF_ID='GPYRO',  /
+
+&INIT XB=0.0,1.0,0.0,1.0,0.0,1.0 TEMPERATURE=800 /
+
+
+
+ 
+
+&BNDF QUANTITY='WALL TEMPERATURE', CELL_CENTERED=T /
+&SLCF PBY=0.5, QUANTITY='TEMPERATURE', CELL_CENTERED=T /
+
+
+&DEVC ID= 'temp gas', QUANTITY='TEMPERATURE', STATISTICS='MEAN', XB= 0.0,1.0,0.0,1.0,0.0,1.0 /
+&DEVC ID= 'temp solid', QUANTITY='WALL TEMPERATURE', STATISTICS='MEAN', XB= 0.4,0.6,0.4,0.6,0.4,0.6, /
+
+
+
+&DEVC ID= 'Conv solid', QUANTITY='CONVECTIVE HEAT FLUX', XYZ= 0.5,0.5,0.6, IOR=+3 /
+
+
+
+
+&DUMP DT_DEVC=5. /
+
+
+
+
+&TAIL /

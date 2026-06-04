@@ -1,0 +1,110 @@
+&HEAD CHID='Imerged_in_complex_fire_scenario',
+TITLE='Heat Transfer through solid Slab'/
+
+&MESH IJK=15,15,15, XB=-0.15,0.15,-0.15,0.15,0.0,0.3 /
+
+&TIME T_END=250., WALL_INCREMENT=1, DT=0.01 /
+
+&MISC  SOLID_PHASE_ONLY=.FALSE.
+	TMPA=20,
+	RADIATION= .TRUE.
+      NUM_GPYRO_MESHES = 1,
+      GPYRO_MESH_CENTROIDS(1,:) =0.00, 0.00, 0.11,
+      GPYRO_MESH_EXTENTS( 1,:) = 0.02, 0.02, 0.02,
+      PROCESS_GPYRO(1) =  1 / 
+
+
+
+&REAC FUEL               = 'PROPANE' /
+
+&SURF ID        = 'SLAB'
+      MATL_ID   = 'SLAB_A'
+      THICKNESS = 0.1
+      CELL_SIZE_FACTOR = 0.5
+      STRETCH_FACTOR = 1.,
+      TMP_INNER=20,
+      BACKING   = 'EXPOSED' /
+
+&MATL ID            = 'SLAB_A'
+      CONDUCTIVITY  = 1.
+      EMISSIVITY    = 1.
+      SPECIFIC_HEAT = 0.1,
+      DENSITY       = 1000. /
+
+
+&MATL ID                      = 'DUMMY_MATL' 
+      CONDUCTIVITY            = 0.2
+      DENSITY                 = 100.
+      SPECIFIC_HEAT           = 1.5 /
+
+
+&SURF ID                        = 'GPYRO' 
+      COLOR                     = 'BLACK'
+      THICKNESS(1)              = 0.02
+      TMP_INNER                 = 20.0,
+      GPYRO                     = .TRUE.
+      DEFAULT                   = .FALSE. /
+
+
+
+&SURF ID            ='BURNER',
+      HRRPUA 	    = 500.,
+      RAMP_Q 	    = 'BURNER_RAMP' /
+
+&RAMP ID = 'BURNER_RAMP', T =  0.0, F = 0.0 /
+&RAMP ID = 'BURNER_RAMP', T =  10.0, F = 0.0 /
+&RAMP ID = 'BURNER_RAMP', T =  10.1, F = 1.0 /
+&RAMP ID = 'BURNER_RAMP', T = 150.0, F = 1.0 /
+&RAMP ID = 'BURNER_RAMP', T = 150.1, F = 0.0 /
+
+
+
+&OBST XB = -0.01,0.01,-0.01,0.01,0.10, 0.12, SURF_IDS='GPYRO', 'INERT', 'GPYRO' /
+&VENT MB='ZMIN' SURF_ID = 'BURNER' /
+
+
+&VENT MB='XMIN', SURF_ID='OPEN' /
+&VENT MB='XMAX', SURF_ID='OPEN' /
+&VENT MB='YMIN', SURF_ID='OPEN' /
+&VENT MB='YMAX', SURF_ID='OPEN' /
+&VENT MB='ZMAX', SURF_ID='OPEN' /
+
+&DUMP NFRAMES = 600 /
+&DEVC XYZ = 0.0,0.0,0.12, IOR = 3, ID='Front',  QUANTITY = 'WALL TEMPERATURE', TIME_AVERAGED=.FALSE. /
+&DEVC XYZ = 0.0,0.0,0.1, IOR = -3, ID='Back',  QUANTITY = 'WALL TEMPERATURE', TIME_AVERAGED=.FALSE. /
+
+
+&DEVC XYZ = 0.0,0.0,0.12, IOR = 3, ID='Net flux Front',  QUANTITY = 'NET HEAT FLUX', TIME_AVERAGED=.FALSE. /
+&DEVC XYZ = 0.0,0.0,0.12, IOR = 3, ID='conv flux Front',  QUANTITY = 'CONVECTIVE HEAT FLUX', TIME_AVERAGED=.FALSE. /
+&DEVC XYZ = 0.0,0.0,0.12, IOR = 3, ID='rad flux Front',  QUANTITY = 'RADIATIVE HEAT FLUX', TIME_AVERAGED=.FALSE. /
+&DEVC XYZ = 0.0,0.0,0.12, IOR = 3, ID='incident flux Front',  QUANTITY = 'INCIDENT HEAT FLUX', TIME_AVERAGED=.FALSE. /
+
+&DEVC XYZ = 0.0,0.0,0.1, IOR =-3, ID='Net flux Back',  QUANTITY = 'NET HEAT FLUX', TIME_AVERAGED=.FALSE. /
+&DEVC XYZ = 0.0,0.0,0.1, IOR =-3, ID='conv flux Back',  QUANTITY = 'CONVECTIVE HEAT FLUX', TIME_AVERAGED=.FALSE. /
+&DEVC XYZ = 0.0,0.0,0.1, IOR =-3, ID='rad flux Back',  QUANTITY = 'RADIATIVE HEAT FLUX', TIME_AVERAGED=.FALSE. /
+&DEVC XYZ = 0.0,0.0,0.1, IOR =-3, ID='incident flux Back',  QUANTITY = 'INCIDENT HEAT FLUX', TIME_AVERAGED=.FALSE. /
+
+&DEVC XYZ = 0.0,0.0,0.25, ID='gaz_temp',  QUANTITY = 'TEMPERATURE', TIME_AVERAGED=.FALSE. /
+
+
+&BNDF QUANTITY = 'WALL TEMPERATURE' /
+&BNDF QUANTITY = 'NET HEAT FLUX' /
+&BNDF QUANTITY = 'CONVECTIVE HEAT FLUX' /
+&BNDF QUANTITY = 'RADIATIVE HEAT FLUX' /
+
+&TAIL /
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

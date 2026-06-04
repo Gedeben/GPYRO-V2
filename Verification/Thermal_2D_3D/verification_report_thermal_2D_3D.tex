@@ -1,0 +1,39 @@
+\ifdefined\ThermalTreeD
+\documentclass[12pt]{report}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[a4paper, margin=1in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{textcomp}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{enumitem}
+\usetikzlibrary{decorations.pathmorphing,patterns}
+\usepackage[hidelinks]{hyperref} % <- hypertext
+
+% <- Define folder macros for modularity
+\newcommand{\THEQTREEDDIR}{Thermal_equilibrium_3D}  % < Thermal equilibrium 3D
+\newcommand{\IBEAM}{I_beam}  % < I beam
+\begin{document}
+\fi
+
+
+\graphicspath{
+  {\THEQTREEDDIR/}
+  {\IBEAM/}
+}
+
+
+
+\chapter{ Thermal 2D-3D}
+
+\newpage
+\input{\THEQTREEDDIR/thermal_equilibrium_3D.tex}
+
+\newpage
+\input{\IBEAM/I_beam.tex}
+
+\ifdefined\ThermalTreeD
+\end{document}
+\fi

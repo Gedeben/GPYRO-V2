@@ -13,7 +13,8 @@
 \usepackage[hidelinks]{hyperref} % <- hypertext
 
 % <- Define folder macros for modularity
-\newcommand{\MACFPPMMA}{MaCFP_PMMA}  % < Thermal equilibrium 3D
+\newcommand{\MACFPPMMA}{MaCFP_PMMA}  % < MacFP PMMA
+\newcommand{\SMOLDERINGNASA}{Smoldering_NASA}  % < MacFP PMMA
 
 \begin{document}
 \fi
@@ -21,16 +22,17 @@
 
 \graphicspath{
   {\MACFPPMMA/}
+  {\SMOLDERINGNASA/}
 }
 
 
 
-\chapter{ Validation}
-Introuduction ...
+\chapter{Validation}
 \newpage
-
 \input{\MACFPPMMA/PMMA.tex}
 
+\newpage
+\input{\SMOLDERINGNASA/Smoldering.tex}
 
 \ifdefined\Validation
 \end{document}

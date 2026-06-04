@@ -1,0 +1,75 @@
+\ifdefined\standalone 
+\documentclass[12pt]{article}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[a4paper, margin=1in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{textcomp}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{enumitem}
+\usetikzlibrary{decorations.pathmorphing,patterns}
+\usepackage[hidelinks]{hyperref} % <- hypertext
+
+\begin{document}
+\fi
+
+\section{Simple TGA}
+\label{sec:simple_tga}
+
+This verification case assesses the ability of Gpyro to accurately reproduce thermogravimetric analysis (TGA) results using a single-step, first-order reaction model.
+A simple non-charring material undergoing a single degradation reaction is considered.
+The reaction properties are summarized in Table~\ref{tab:tga_properties}.
+
+The simulation is performed in a zero-dimensional configuration, equivalent to a TGA experiment.
+The initial sample mass is set to $m_{A,0} = 5~\mathrm{mg}$, and the temperature is increased at a constant heating rate of $\beta = 5~\mathrm{K\,min^{-1}}$, starting from an initial temperature of $T_0 = 27^\circ\mathrm{C}$.
+The total simulation time is $5000~\mathrm{s}$.
+
+The resulting mass loss rate (MLR) obtained from the Gpyro simulation is compared with the corresponding analytical solution.
+The analytical formulation of this problem is derived in Appendix~\ref{ann:analytical_TGA} and is recalled here for completeness.
+
+\begin{equation}
+\mathrm{MLR}(t) =
+m_{A,0}\,
+Z \exp\!\left(-\frac{E}{R\,(T_0 + \beta t)}\right)
+\exp\!\left(
+- \int_{t_0}^{t}
+Z \exp\!\left(-\frac{E}{R\,(T_0 + \beta t')}\right)\, dt'
+\right)
+\end{equation}
+
+\begin{table}[H]
+\centering
+\caption{Reaction properties.}
+\label{tab:tga_properties}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{c c c c}
+\hline
+Reaction &
+$Z$ ($\mathrm{s^{-1}}$) &
+$E$ ($\mathrm{kJ\,mol^{-1}}$) &
+$n$ (-) \\
+\hline
+Material A $\rightarrow$ gases & $0.87 \times 10^{13}$ & 163 & 1 \\
+\hline
+\end{tabular}
+\end{table}
+
+The results obtained using Gpyro are compared to the analytical predictions.
+Figure~\ref{fig:MLR_TGA} presents the mass loss rate as a function of time for both approaches.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.75\linewidth]{TGA_simple.png}
+\caption{Comparison between Gpyro and analytical mass loss rate predictions.}
+\label{fig:MLR_TGA}
+\end{figure}
+
+\ifdefined\standalone
+\end{document}
+\fi
+
+
+
+
